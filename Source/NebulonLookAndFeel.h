@@ -14,7 +14,16 @@ namespace colours
     const juce::Colour textDim  { 0xff7f8aa6 };
     const juce::Colour layerA   { 0xff35d0e8 };   // cyan
     const juce::Colour layerB   { 0xffb06bff };   // violet
+    const juce::Colour layerC   { 0xff7ee081 };   // green
+    const juce::Colour layerD   { 0xffff6b8b };   // coral
     const juce::Colour fx       { 0xffffb347 };   // amber
+    const juce::Colour mod      { 0xff5aa9ff };   // blue
+    const juce::Colour perf     { 0xffe8e3a0 };   // pale gold
+
+    inline juce::Colour layer (int l)
+    {
+        switch (l) { case 0: return layerA; case 1: return layerB; case 2: return layerC; default: return layerD; }
+    }
 }
 
 class LookAndFeel : public juce::LookAndFeel_V4
@@ -84,7 +93,8 @@ public:
     {
         const auto accent = b.findColour (juce::ToggleButton::tickColourId);
         auto r = b.getLocalBounds().toFloat().reduced (2.0f);
-        auto pill = r.removeFromLeft (r.getHeight() * 1.8f);
+        const float ph = juce::jmin (20.0f, r.getHeight());
+        auto pill = r.removeFromLeft (ph * 1.8f).withSizeKeepingCentre (ph * 1.8f, ph);
         const bool on = b.getToggleState();
         g.setColour (on ? accent.withAlpha (0.3f) : colours::outline);
         g.fillRoundedRectangle (pill, pill.getHeight() * 0.5f);
@@ -94,8 +104,42 @@ public:
         g.fillEllipse (kx, pill.getY() + 2.0f, d, d);
 
         g.setColour (on ? colours::text : colours::textDim);
-        g.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)));
-        g.drawText (b.getButtonText(), r.withTrimmedLeft (8), juce::Justification::centredLeft);
+        g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
+        g.drawFittedText (b.getButtonText(), r.withTrimmedLeft (7).toNearestInt(), juce::Justification::centredLeft, 1, 0.75f);
+    }
+
+    void drawLinearSlider (juce::Graphics& g, int x, int y, int w, int h, float pos, float, float,
+                           juce::Slider::SliderStyle, juce::Slider& s) override
+    {
+        const auto accent = s.findColour (juce::Slider::trackColourId);
+        auto r = juce::Rectangle<int> (x, y, w, h).toFloat().withSizeKeepingCentre ((float) w, 8.0f);
+        g.setColour (colours::outline);
+        g.fillRoundedRectangle (r, 4.0f);
+        const float zero = s.getMinimum() < 0 ? r.getCentreX() : r.getX();
+        const float a = juce::jmin (zero, pos), b = juce::jmax (zero, pos);
+        g.setColour (accent);
+        g.fillRoundedRectangle (juce::Rectangle<float> (a, r.getY(), juce::jmax (2.0f, b - a), r.getHeight()), 4.0f);
+        g.setColour (colours::text);
+        g.fillEllipse (pos - 5.0f, r.getCentreY() - 5.0f, 10.0f, 10.0f);
+    }
+
+    void drawButtonBackground (juce::Graphics& g, juce::Button& b, const juce::Colour&, bool over, bool down) override
+    {
+        auto r = b.getLocalBounds().toFloat().reduced (1.0f);
+        const bool on = b.getToggleState();
+        const auto accent = b.findColour (juce::TextButton::buttonOnColourId);
+        g.setColour (on ? accent.withAlpha (0.22f) : colours::panelHi.brighter (over ? 0.15f : 0.0f).darker (down ? 0.2f : 0.0f));
+        g.fillRoundedRectangle (r, 6.0f);
+        g.setColour (on ? accent : colours::outline);
+        g.drawRoundedRectangle (r, 6.0f, on ? 1.5f : 1.0f);
+    }
+
+    void drawButtonText (juce::Graphics& g, juce::TextButton& b, bool, bool) override
+    {
+        const bool on = b.getToggleState();
+        g.setColour (on ? b.findColour (juce::TextButton::buttonOnColourId).brighter (0.3f) : colours::text);
+        g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
+        g.drawText (b.getButtonText(), b.getLocalBounds(), juce::Justification::centred);
     }
 
     juce::Font getComboBoxFont (juce::ComboBox&) override { return juce::Font (juce::FontOptions (13.0f)); }

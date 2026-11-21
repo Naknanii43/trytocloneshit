@@ -1,6 +1,50 @@
-// Offline smoke test: renders each factory preset to a WAV file and snapshots the editor to PNG.
+// Offline smoke test: renders every factory preset to WAV, checks for silence / NaNs,
+// measures CPU cost, loads a user sample, and snapshots each editor page to PNG.
 #include "../Source/PluginProcessor.h"
+#include "../Source/PluginEditor.h"
 #include <juce_audio_formats/juce_audio_formats.h>
+
+static void writeWav (const juce::File& file, const juce::AudioBuffer<float>& buf, double sr)
+{
+    juce::WavAudioFormat wav;
+    file.deleteFile();
+    if (auto stream = file.createOutputStream())
+        if (auto* w = wav.createWriterFor (stream.get(), sr, (unsigned) buf.getNumChannels(), 24, {}, 0))
+        {
+            stream.release();
+            std::unique_ptr<juce::AudioFormatWriter> writer (w);
+            writer->writeFromAudioSampleBuffer (buf, 0, buf.getNumSamples());
+        }
+}
+
+static juce::AudioBuffer<float> renderChord (NebulonProcessor& proc, double sr, int block, float& peak, bool& bad)
+{
+    proc.prepareToPlay (sr, block);
+    const int total = (int) (sr * 6);
+    juce::AudioBuffer<float> out (2, total);
+    out.clear();
+    const int chord[] = { 48, 55, 60, 64, 67 };
+    peak = 0; bad = false;
+    for (int pos = 0; pos < total; pos += block)
+    {
+        const int n = juce::jmin (block, total - pos);
+        juce::AudioBuffer<float> buf (2, n);
+        juce::MidiBuffer midi;
+        if (pos == 0) for (int note : chord) midi.addEvent (juce::MidiMessage::noteOn (1, note, (juce::uint8) 100), 0);
+        if (pos <= (int) (sr * 3.5) && pos + n > (int) (sr * 3.5))
+            for (int note : chord) midi.addEvent (juce::MidiMessage::noteOff (1, note), (int) (sr * 3.5) - pos);
+        proc.processBlock (buf, midi);
+        for (int c = 0; c < 2; ++c)
+            for (int i = 0; i < n; ++i)
+            {
+                const float v = buf.getSample (c, i);
+                if (! std::isfinite (v)) bad = true;
+                peak = juce::jmax (peak, std::abs (v));
+                out.setSample (c, pos + i, v);
+            }
+    }
+    return out;
+}
 
 int main (int argc, char** argv)
 {
@@ -13,67 +57,82 @@ int main (int argc, char** argv)
     const int block = 512;
     proc.setPlayConfigDetails (0, 2, sr, block);
     int failures = 0;
+    double worstRt = 0;
 
     for (int p = 0; p < proc.getNumPrograms(); ++p)
     {
         proc.setCurrentProgram (p);
-        proc.prepareToPlay (sr, block);
-        const int total = (int) (sr * 6);
-        juce::AudioBuffer<float> out (2, total);
-        out.clear();
-        const int chord[] = { 48, 55, 60, 64, 67 };
-        float peak = 0; bool bad = false;
-
-        for (int pos = 0; pos < total; pos += block)
-        {
-            const int n = juce::jmin (block, total - pos);
-            juce::AudioBuffer<float> buf (2, n);
-            juce::MidiBuffer midi;
-            if (pos == 0) for (int note : chord) midi.addEvent (juce::MidiMessage::noteOn (1, note, (juce::uint8) 100), 0);
-            if (pos <= (int) (sr * 3) && pos + n > (int) (sr * 3))
-                for (int note : chord) midi.addEvent (juce::MidiMessage::noteOff (1, note), (int) (sr * 3) - pos);
-            proc.processBlock (buf, midi);
-            for (int c = 0; c < 2; ++c)
-                for (int i = 0; i < n; ++i)
-                {
-                    const float v = buf.getSample (c, i);
-                    if (! std::isfinite (v)) bad = true;
-                    peak = juce::jmax (peak, std::abs (v));
-                    out.setSample (c, pos + i, v);
-                }
-        }
-
+        float peak; bool bad;
+        const auto t0 = juce::Time::getMillisecondCounterHiRes();
+        auto out = renderChord (proc, sr, block, peak, bad);
+        const double rt = (juce::Time::getMillisecondCounterHiRes() - t0) / 6000.0; // fraction of real time
+        worstRt = juce::jmax (worstRt, rt);
         const auto name = proc.getProgramName (p);
-        std::printf ("%-22s peak=%.3f %s\n", name.toRawUTF8(), peak, bad ? "NaN/Inf!" : (peak < 0.01f ? "SILENT!" : "ok"));
-        if (bad || peak < 0.01f) ++failures;
+        const bool silent = peak < 0.01f;
+        std::printf ("%-10s %-22s peak=%.3f cpu=%4.1f%% %s\n", proc.getPresetCategory (p).toRawUTF8(), name.toRawUTF8(),
+                     peak, rt * 100.0, bad ? "NaN/Inf!" : (silent ? "SILENT!" : "ok"));
+        if (bad || silent) ++failures;
+        writeWav (outDir.getChildFile (name.replaceCharacter (' ', '_') + ".wav"), out, sr);
+    }
+    std::printf ("worst-case render cost: %.1f%% of one core (5-note chord)\n", worstRt * 100.0);
 
-        juce::WavAudioFormat wav;
-        auto file = outDir.getChildFile (name.replaceCharacter (' ', '_') + ".wav");
-        file.deleteFile();
-        if (auto stream = file.createOutputStream())
-            if (auto* w = wav.createWriterFor (stream.get(), sr, 2, 24, {}, 0))
-            {
-                stream.release();
-                std::unique_ptr<juce::AudioFormatWriter> writer (w);
-                writer->writeFromAudioSampleBuffer (out, 0, total);
-            }
+    // user sample: write a test tone to disk, load it into layer A, granulate it
+    {
+        juce::AudioBuffer<float> tone (1, 48000);
+        for (int i = 0; i < tone.getNumSamples(); ++i)
+            tone.setSample (0, i, 0.5f * (float) std::sin (neb::twoPi * 261.6256 * i / 48000.0) * (1.0f + 0.3f * (float) std::sin (i * 0.0005)));
+        auto f = outDir.getChildFile ("test_tone.wav");
+        writeWav (f, tone, 48000.0);
+        proc.setCurrentProgram (0);
+        const bool ok = proc.loadUserSample (0, f);
+        proc.apvts.getParameter ("A_mode")->setValueNotifyingHost (proc.apvts.getParameter ("A_mode")->convertTo0to1 (3));
+        float peak; bool bad;
+        renderChord (proc, sr, block, peak, bad);
+        std::printf ("user sample load: %s, granular render peak=%.3f %s\n", ok ? "ok" : "FAILED", peak, bad ? "NaN!" : "");
+        if (! ok || bad || peak < 0.01f) ++failures;
     }
 
-    // UI snapshot (render one more burst of audio so the scope has a waveform)
-    proc.setCurrentProgram (1);
+    // arpeggiator: hold a chord with the arp on, count note-ons coming out
+    {
+        proc.setCurrentProgram (0);
+        proc.apvts.getParameter ("arpOn")->setValueNotifyingHost (1.0f);
+        proc.prepareToPlay (sr, block);
+        int noteOns = 0;
+        for (int b = 0; b < (int) (sr * 2 / block); ++b)
+        {
+            juce::MidiBuffer midi;
+            if (b == 0) for (int n : { 60, 64, 67 }) midi.addEvent (juce::MidiMessage::noteOn (1, n, (juce::uint8) 100), 0);
+            juce::MidiBuffer copy (midi);
+            neb::Arpeggiator::Settings s; s.on = true; s.stepBeats = 0.25;
+            proc.arp.process (copy, block, s, 120.0, false, 0.0);
+            for (const auto m : copy) if (m.getMessage().isNoteOn()) ++noteOns;
+        }
+        std::printf ("arp: %d note-ons in 2s at 1/16 @120bpm (expect ~16)\n", noteOns);
+        if (noteOns < 14 || noteOns > 18) ++failures;
+    }
+
+    // UI snapshots of every page
+    proc.setCurrentProgram (2);
     {
         juce::AudioBuffer<float> buf (2, block);
         juce::MidiBuffer midi;
         midi.addEvent (juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100), 0);
-        for (int i = 0; i < 40; ++i) { proc.processBlock (buf, midi); midi.clear(); }
+        for (int i = 0; i < 60; ++i) { proc.processBlock (buf, midi); midi.clear(); }
     }
-    std::unique_ptr<juce::AudioProcessorEditor> ed (proc.createEditor());
-    const auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 2.0f);
-    juce::PNGImageFormat png;
-    auto pngFile = outDir.getChildFile ("ui.png");
-    pngFile.deleteFile();
-    if (auto s = pngFile.createOutputStream()) png.writeImageToStream (img, *s);
-    ed.reset();
+    {
+        std::unique_ptr<juce::AudioProcessorEditor> ed (proc.createEditor());
+        auto* ne = dynamic_cast<NebulonEditor*> (ed.get());
+        const char* names[] = { "main", "layerA", "layerB", "layerC", "layerD", "mod", "arp", "fx" };
+        for (int pg = 0; pg < 8; ++pg)
+        {
+            ne->showPage (pg);
+            const auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+            juce::PNGImageFormat png;
+            auto f = outDir.getChildFile (juce::String ("ui_") + names[pg] + ".png");
+            f.deleteFile();
+            if (auto s = f.createOutputStream()) png.writeImageToStream (img, *s);
+        }
+    }
 
     std::printf (failures ? "FAILED (%d)\n" : "ALL OK\n", failures);
     return failures ? 1 : 0;

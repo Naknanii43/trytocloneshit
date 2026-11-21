@@ -2,6 +2,7 @@
 
 #include "PluginProcessor.h"
 #include "NebulonLookAndFeel.h"
+#include "Pages.h"
 
 class NebulonEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
@@ -9,65 +10,50 @@ public:
     explicit NebulonEditor (NebulonProcessor&);
     ~NebulonEditor() override;
 
-    void paint (juce::Graphics&) override;
     void resized() override;
+    void showPage (int index);
+
+    static constexpr int designW = 1200, designH = 820;
 
 private:
-    struct Knob
-    {
-        juce::Slider slider;
-        juce::Label label;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
-    };
-
-    struct Section
-    {
-        juce::String title;
-        juce::Colour colour;
-        std::vector<Knob*> knobs;
-        juce::Component* lead = nullptr;   // optional non-knob control placed first (e.g. a combo box)
-        juce::Rectangle<int> bounds;
-    };
-
-    // Animated output display
     class Scope : public juce::Component
     {
     public:
         explicit Scope (NebulonProcessor& p) : proc (p) {}
         void paint (juce::Graphics&) override;
-        float phase = 0.0f;
     private:
         NebulonProcessor& proc;
     };
 
-    struct LayerUI
+    // Everything is laid out at a fixed design size and scaled as a whole.
+    class Content : public juce::Component
     {
-        juce::ToggleButton power;
-        juce::ComboBox filterType;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> powerAtt;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> filterAtt;
-        juce::Rectangle<int> bounds;
-        std::vector<Section> rows[4];
+    public:
+        explicit Content (NebulonEditor& e) : owner (e) {}
+        void paint (juce::Graphics&) override;
+        void resized() override;
+    private:
+        NebulonEditor& owner;
     };
 
-    Knob* makeKnob (const juce::String& paramId, const juce::String& name, juce::Colour accent);
-    void buildLayer (int index, const juce::String& prefix, juce::Colour accent);
-    void layoutSection (Section&);
     void refreshPresetBox();
+    void savePresetDialog();
     void timerCallback() override;
 
     NebulonProcessor& proc;
     neb::LookAndFeel lnf;
+    Content content { *this };
 
-    std::vector<std::unique_ptr<Knob>> knobs;
-    LayerUI layers[2];
-    std::vector<Section> fxSections;
+    std::vector<std::unique_ptr<neb::ui::Page>> pages;
+    std::vector<std::unique_ptr<juce::TextButton>> tabs;
+    int currentPage = 0;
 
     juce::ComboBox presetBox;
-    juce::TextButton prevBtn { "<" }, nextBtn { ">" };
-    Scope scope;
+    juce::TextButton prevBtn { "<" }, nextBtn { ">" }, saveBtn { "SAVE" };
+    juce::Array<juce::File> userPresetFiles;
+    Scope scope { proc };
     juce::MidiKeyboardComponent keyboard;
-    juce::Rectangle<int> headerArea;
+    juce::TooltipWindow tooltips { this, 600 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NebulonEditor)
 };

@@ -3,7 +3,9 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_dsp/juce_dsp.h>
-#include "SynthVoice.h"
+#include "Engine.h"
+#include "Arpeggiator.h"
+#include "FxChain.h"
 
 class NebulonProcessor : public juce::AudioProcessor
 {
@@ -24,7 +26,7 @@ public:
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 6.0; }
+    double getTailLengthSeconds() const override { return 8.0; }
 
     int getNumPrograms() override;
     int getCurrentProgram() override { return currentProgram; }
@@ -37,8 +39,22 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 
+    // --- presets
+    juce::String getPresetCategory (int index) const;
+    juce::File getUserPresetFolder() const;
+    juce::Array<juce::File> getUserPresets() const;
+    bool saveUserPreset (const juce::String& name);
+    bool loadUserPreset (const juce::File& file);
+    juce::String currentPresetName;
+
+    // --- samples
+    bool loadUserSample (int layer, const juce::File& file);
+    const neb::SampleData* getLayerSource (int layer) const;
+    juce::String getUserSampleName (int layer) const;
+
     juce::AudioProcessorValueTreeState apvts;
     juce::MidiKeyboardState keyboardState;
+    neb::Arpeggiator arp;
 
     // oscilloscope feed (written on audio thread, read by the UI)
     static constexpr int scopeSize = 2048;
@@ -46,17 +62,14 @@ public:
     std::atomic<int> scopeWrite { 0 };
 
 private:
-    void processDelay (juce::AudioBuffer<float>&);
+    void resetToDefaults();
 
-    neb::SynthParams params;
-    juce::Synthesiser synth;
-    juce::dsp::Chorus<float> chorus;
-    juce::Reverb reverb;
-
-    juce::AudioBuffer<float> delayBuf;
-    int delayWrite = 0;
-    float delayLpState[2] {};
-    juce::SmoothedValue<float> delaySamples;
+    neb::Shared shared;
+    neb::NebSynth synth;
+    neb::FxChain fx;
+    juce::AudioFormatManager formatManager;
+    std::vector<std::unique_ptr<neb::SampleData>> loadedSamples; // kept alive while the plugin lives
+    juce::CriticalSection sampleLock;
 
     int currentProgram = 0;
     double sr = 44100.0;

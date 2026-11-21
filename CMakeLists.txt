@@ -34,9 +34,15 @@ juce_add_plugin(Nebulon
     PLUGIN_CODE Nb01
     FORMATS ${NEBULON_FORMATS})
 
-target_sources(Nebulon PRIVATE
+set(NEBULON_SOURCES
     Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp)
+    Source/PluginEditor.cpp
+    Source/Pages.cpp
+    Source/Engine.cpp
+    Source/Wavetables.cpp
+    Source/Sources.cpp)
+
+target_sources(Nebulon PRIVATE ${NEBULON_SOURCES})
 
 target_compile_definitions(Nebulon PUBLIC
     JUCE_WEB_BROWSER=0
@@ -58,8 +64,7 @@ if(NEBULON_BUILD_TESTS)
     juce_add_console_app(NebulonRenderTest PRODUCT_NAME "NebulonRenderTest")
     target_sources(NebulonRenderTest PRIVATE
         tools/RenderTest.cpp
-        Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp)
+        ${NEBULON_SOURCES})
     target_compile_definitions(NebulonRenderTest PRIVATE
         JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1)
     target_link_libraries(NebulonRenderTest PRIVATE
