@@ -6,6 +6,7 @@
 #include "Engine.h"
 #include "Arpeggiator.h"
 #include "FxChain.h"
+#include "PhrasePlayer.h"
 
 class NebulonProcessor : public juce::AudioProcessor
 {
@@ -45,7 +46,11 @@ public:
     juce::Array<juce::File> getUserPresets() const;
     bool saveUserPreset (const juce::String& name);
     bool loadUserPreset (const juce::File& file);
-    juce::String currentPresetName;
+    juce::String currentPresetName, currentCategory { "Pads" };
+    juce::String getPresetDescription() const;
+
+    // Generates a new, playable random patch and gives it a name.
+    void inspire();
 
     // --- samples
     bool loadUserSample (int layer, const juce::File& file);
@@ -55,6 +60,7 @@ public:
     juce::AudioProcessorValueTreeState apvts;
     juce::MidiKeyboardState keyboardState;
     neb::Arpeggiator arp;
+    neb::PhrasePlayer preview;
 
     // oscilloscope feed (written on audio thread, read by the UI)
     static constexpr int scopeSize = 2048;
@@ -63,6 +69,7 @@ public:
 
 private:
     void resetToDefaults();
+    void setParam (const juce::String& id, float value);
 
     neb::Shared shared;
     neb::NebSynth synth;

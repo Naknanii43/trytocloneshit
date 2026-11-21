@@ -50,6 +50,14 @@ private:
 
     juce::ComboBox presetBox;
     juce::TextButton prevBtn { "<" }, nextBtn { ">" }, saveBtn { "SAVE" };
+    neb::ui::IconButton previewBtn { "PREVIEW", neb::ui::IconButton::play, neb::colours::layerA };
+    neb::ui::IconButton inspireBtn { "INSPIRE", neb::ui::IconButton::dice, neb::colours::layerB };
+    juce::String infoText, lastPresetSeen;
+    juce::Rectangle<int> infoArea;
+    double presetChangedAt = 0;
+    int tipIndex = 0;
+    bool focusGrabbed = false;
+    void updateInfo();
     juce::Array<juce::File> userPresetFiles;
     Scope scope { proc };
     juce::MidiKeyboardComponent keyboard;

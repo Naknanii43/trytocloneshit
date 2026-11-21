@@ -50,8 +50,9 @@ struct Comb
     static constexpr int size = 4096, mask = size - 1;
     std::array<float, size> buf {};
     int w = 0;
+    float damp = 0.0f; // one-pole lowpass in the loop, like a plucked string
 
-    void reset() { buf.fill (0.0f); w = 0; }
+    void reset() { buf.fill (0.0f); w = 0; damp = 0.0f; }
 
     inline float process (float x, float delay, float fb)
     {
@@ -60,7 +61,8 @@ struct Comb
         const int i0 = (int) rp;
         const float fr = rp - (float) i0;
         const float d = buf[(size_t) (i0 & mask)] + (buf[(size_t) ((i0 + 1) & mask)] - buf[(size_t) (i0 & mask)]) * fr;
-        const float y = x + fb * d;
+        damp += (d - damp) * 0.3f;
+        const float y = x + fb * damp;
         buf[(size_t) w] = std::tanh (y);
         w = (w + 1) & mask;
         return y * 0.6f;

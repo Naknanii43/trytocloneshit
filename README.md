@@ -7,6 +7,47 @@ presets are its own.
 
 ![Main page](docs/main.png)
 
+## 🎧 Listen first
+
+Every sound below was rendered straight from the plugin's engine. No samples from other products, no post-processing.
+
+| | |
+|---|---|
+| **[▶ Nebulon Showcase](demos/00_Nebulon_Showcase.mp3)** | 48-second track built from 7 presets: pad, ocean texture, arp, bass, lead and a cinematic swell |
+| **[▶ Preset Tour](demos/98_Preset_Tour_All_Presets.mp3)** | All 61 factory presets back to back (~5 min) |
+| **[▶ Inspire Roulette](demos/99_Inspire_Roulette.mp3)** | Ten patches invented on the spot by the INSPIRE button |
+
+**Individual presets:**
+[Glass Horizon](demos/01_Glass_Horizon.mp3) ·
+[Nebula Choir](demos/02_Nebula_Choir.mp3) ·
+[Aurora Veil](demos/03_Aurora_Veil.mp3) ·
+[Warm Analog Strings](demos/04_Warm_Analog_Strings.mp3) ·
+[Lofi Dream Piano](demos/05_Lofi_Dream_Piano.mp3) ·
+[FM Electric Piano](demos/06_FM_Electric_Piano.mp3) ·
+[Dream Harp](demos/07_Dream_Harp.mp3) ·
+[Reese Growl](demos/08_Reese_Growl.mp3) ·
+[Wobble Monster](demos/09_Wobble_Monster.mp3) ·
+[Hyper Saw Lead](demos/10_Hyper_Saw_Lead.mp3) ·
+[Vowel Talker](demos/11_Vowel_Talker.mp3) ·
+[Crystal Pluck](demos/12_Crystal_Pluck.mp3) ·
+[Ice Drops](demos/13_Ice_Drops.mp3) ·
+[Starlight Arp](demos/14_Starlight_Arp.mp3) ·
+[Night Drive Arp](demos/15_Night_Drive_Arp.mp3) ·
+[Deep Space Station](demos/16_Deep_Space_Station.mp3) ·
+[Abyssal Choir](demos/17_Abyssal_Choir.mp3) ·
+[Rain on Glass](demos/18_Rain_on_Glass.mp3) ·
+[Four Worlds](demos/19_Four_Worlds.mp3) ·
+[Tension Strings](demos/20_Tension_Strings.mp3)
+
+## ✨ Instant fun: no manual needed
+
+- **▶ PREVIEW**: one click and the current patch plays a musical phrase that suits it (chords for pads, a bassline for basses, a melody for leads, broken chords for plucks). It keeps playing while you browse presets or turn knobs, so you can explore without a keyboard.
+- **🎲 INSPIRE**: invents a brand-new, playable patch with a name like *"~ Lunar Orchard"*. It picks a sound type (pad, pluck, keys, bass, lead, texture or arp), engines, sources, filters, modulation and effects within musical ranges. Like it? Press **SAVE**.
+- **Nebula Pad**: an animated, audio-reactive XY surface on the MAIN page. Drag it while notes play: left/right = **Tone**, up/down = **Morph**. It glows and pulses with the output.
+- **Info bar**: hover any control to see its name and value; otherwise it describes the current preset and shows tips.
+- **Play with your computer keyboard**: `A W S E D F T G Y H U J K` play C to C.
+- **Macros** (Tone, Morph, Grit, Spread) start in the centre, so you can push any preset in either direction.
+
 ## What it can do
 
 ### 4 layers × 5 sound engines
@@ -41,7 +82,7 @@ DAW project and in saved presets.
   per-note random, 4 macros. Destinations: pitch, cutoff, resonance, level, pan, *timbre*
   (wave shape / wavetable position / FM amount / grain position), detune, drive, sub,
   noise, grain size, grain density, filter-env amount. Each slot targets all layers or one.
-- **4 macro knobs** (Tone, Morph, Grit, Spread), pre-wired through matrix slots 9–12 and re-routable
+- **4 bipolar macro knobs** (Tone, Morph, Grit, Spread), pre-wired through matrix slots 9–12 and re-routable; also driven by the Nebula Pad
 
 ![Modulation page](docs/mod.png)
 
@@ -59,8 +100,8 @@ tempo-synced ping-pong Delay → Reverb → soft-clipping master.
 Polyphony 1–16 · Mono and Legato modes · Glide · pitch-bend range up to ±24 · on-screen keyboard.
 
 ### Presets
-40 factory patches in 9 categories (Pads, Keys, Bass, Leads, Plucks, Arps, Drones, Textures,
-Cinematic). **Save your own** with the SAVE button. They go to `Documents/Nebulon/Presets`
+61 factory patches in 9 categories (Pads, Keys, Bass, Leads, Plucks, Arps, Drones, Textures,
+Cinematic), each with a one-line description. **Save your own** with the SAVE button. They go to `Documents/Nebulon/Presets`
 and show up under "User" in the browser. Factory patches also appear in your DAW's program list.
 
 ## Getting the plugin
@@ -89,9 +130,11 @@ cmake --build build --config Release
 ```
 
 Output lands in `build/Nebulon_artefacts/Release/`. Pass `-DJUCE_DIR=/path/to/JUCE` to use a
-local JUCE. Add `-DNEBULON_BUILD_TESTS=ON` to build `NebulonRenderTest`, which renders every
-preset to WAV (checking for silence / NaNs and reporting CPU cost), tests sample loading and
-the arpeggiator, and snapshots every UI page.
+local JUCE. Add `-DNEBULON_BUILD_TESTS=ON` to also build:
+
+- `NebulonRenderTest`: renders every preset (checking for silence / NaNs and reporting CPU
+  cost) and tests sample loading, the arpeggiator, Preview, 20 Inspire patches and every UI page.
+- `NebulonDemoRender <dir>`: re-renders all the demo audio in `demos/`.
 
 ## Project layout
 
@@ -101,6 +144,7 @@ Source/Engine.*              voice: 5 engines, unison/harmony, filters, envelope
 Source/Wavetables.*          wavetable generation (FFT mip-maps)
 Source/Sources.*             built-in granular/sample source sounds
 Source/Arpeggiator.h         tempo-synced arpeggiator
+Source/PhrasePlayer.h        musical phrases for PREVIEW and the demos
 Source/FxChain.h             effects rack
 Source/DSP.h                 SVF, comb, biquad, PolyBLEP oscillators
 Source/Params.h              shared enums and name lists
@@ -109,8 +153,10 @@ Source/Presets.h             factory patches
 Source/PluginEditor.*        window, header, tabs, preset browser, scope
 Source/Pages.*               Main / Layer / Modulation / Arp / Effects pages
 Source/Controls.h            knob, choice, toggle and panel widgets
+Source/Widgets.h             Nebula Pad and icon buttons
 Source/NebulonLookAndFeel.h  styling
 tools/RenderTest.cpp         offline test
+tools/DemoRender.cpp         demo audio renderer
 ```
 
 ## License note

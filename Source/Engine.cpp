@@ -162,7 +162,7 @@ void Voice::controlTick (int n)
     srcVals[srcAftertouch] = sh.aftertouch.load();
     srcVals[srcKey] = juce::jlimit (-1.0f, 1.0f, (float) (note - 60) / 36.0f);
     srcVals[srcRandom] = randomVal;
-    for (int i = 0; i < numMacros; ++i) srcVals[srcMacro1 + i] = g.macro[i]->load();
+    for (int i = 0; i < numMacros; ++i) srcVals[srcMacro1 + i] = g.macro[i]->load() * 2.0f - 1.0f; // centre = no change
 
     // matrix
     std::memset (mods, 0, sizeof (mods));

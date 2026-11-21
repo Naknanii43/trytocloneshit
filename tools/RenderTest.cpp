@@ -111,6 +111,39 @@ int main (int argc, char** argv)
         if (noteOns < 14 || noteOns > 18) ++failures;
     }
 
+    // preview phrase player: no MIDI in, should still play notes
+    {
+        proc.setCurrentProgram (1);
+        proc.preview.enabled.store (true);
+        float peak; bool bad;
+        juce::AudioBuffer<float> buf (2, block);
+        proc.prepareToPlay (sr, block);
+        peak = 0; bad = false;
+        for (int b = 0; b < (int) (sr * 4 / block); ++b)
+        {
+            juce::MidiBuffer midi;
+            proc.processBlock (buf, midi);
+            peak = juce::jmax (peak, buf.getMagnitude (0, block));
+        }
+        proc.preview.enabled.store (false);
+        std::printf ("preview: peak=%.3f %s\n", peak, peak > 0.01f ? "ok" : "SILENT!");
+        if (peak < 0.01f) ++failures;
+    }
+
+    // inspire: 20 random patches must all make sound
+    {
+        int silent = 0;
+        for (int i = 0; i < 20; ++i)
+        {
+            proc.inspire();
+            float peak; bool bad;
+            renderChord (proc, sr, block, peak, bad);
+            if (peak < 0.01f || bad) { ++silent; std::printf ("  inspire FAILED: %s peak=%.3f\n", proc.currentPresetName.toRawUTF8(), peak); }
+        }
+        std::printf ("inspire: %d/20 random patches OK\n", 20 - silent);
+        failures += silent;
+    }
+
     // UI snapshots of every page
     proc.setCurrentProgram (2);
     {

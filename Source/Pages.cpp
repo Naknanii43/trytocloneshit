@@ -118,8 +118,9 @@ void LayerDisplay::paint (juce::Graphics& g)
 
 //==============================================================================
 MainPage::MainPage (NebulonProcessor& p, juce::Component* popup, std::function<void (int)> onEditLayer)
-    : Page (p, popup)
+    : Page (p, popup), pad (p)
 {
+    addAndMakeVisible (pad);
     for (int l = 0; l < numLayers; ++l)
     {
         const auto pre = layerPrefix (l);
@@ -140,8 +141,12 @@ MainPage::MainPage (NebulonProcessor& p, juce::Component* popup, std::function<v
     }
 
     macros = panel ("MACROS", colours::perf);
-    macros->addRow ({ knob ("macro1", "TONE", colours::perf), knob ("macro2", "MORPH", colours::perf) });
-    macros->addRow ({ knob ("macro3", "GRIT", colours::perf), knob ("macro4", "SPREAD", colours::perf) });
+    auto* m1 = knob ("macro1", "TONE", colours::perf);
+    auto* m2 = knob ("macro2", "MORPH", colours::perf);
+    auto* m3 = knob ("macro3", "GRIT", colours::perf);
+    auto* m4 = knob ("macro4", "SPREAD", colours::perf);
+    for (auto* k : { m1, m2, m3, m4 }) k->slider.getProperties().set ("bipolar", true);
+    macros->addRow ({ m1, m2, m3, m4 });
 
     perf = panel ("PERFORMANCE", colours::perf);
     perf->addRow ({ knob ("poly", "Voices", colours::perf), knob ("glide", "Glide", colours::perf),
@@ -157,7 +162,8 @@ void MainPage::resized()
     const int h = r.getHeight() / numLayers;
     for (int l = 0; l < numLayers; ++l)
         strips[l]->setBounds (r.removeFromTop (h).reduced (0, 3));
-    macros->setBounds (right.removeFromTop (right.getHeight() * 55 / 100).reduced (0, 3));
+    pad.setBounds (right.removeFromTop (right.getHeight() * 46 / 100).reduced (0, 3));
+    macros->setBounds (right.removeFromTop (right.getHeight() * 45 / 100).reduced (0, 3));
     perf->setBounds (right.reduced (0, 3));
 }
 

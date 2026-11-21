@@ -73,6 +73,14 @@ NebulonEditor::NebulonEditor (NebulonProcessor& p)
     saveBtn.onClick = [this] { savePresetDialog(); };
     refreshPresetBox();
 
+    previewBtn.setClickingTogglesState (true);
+    previewBtn.setTooltip ("Play a short musical phrase with this patch - no keyboard needed");
+    previewBtn.onClick = [this] { proc.preview.enabled.store (previewBtn.getToggleState()); };
+    inspireBtn.setTooltip ("Invent a brand-new patch");
+    inspireBtn.onClick = [this] { proc.inspire(); refreshPresetBox(); };
+    content.addAndMakeVisible (previewBtn);
+    content.addAndMakeVisible (inspireBtn);
+
     content.addAndMakeVisible (scope);
 
     keyboard.setColour (juce::MidiKeyboardComponent::whiteNoteColourId, juce::Colour (0xffcfd6e6));
@@ -82,9 +90,12 @@ NebulonEditor::NebulonEditor (NebulonProcessor& p)
     keyboard.setColour (juce::MidiKeyboardComponent::keySeparatorLineColourId, colours::outline);
     keyboard.setColour (juce::MidiKeyboardComponent::shadowColourId, juce::Colours::transparentBlack);
     keyboard.setLowestVisibleKey (36);
+    keyboard.setKeyPressBaseOctave (5);
+    keyboard.setWantsKeyboardFocus (true);
     content.addAndMakeVisible (keyboard);
 
     showPage (0);
+    updateInfo();
 
     setResizable (true, true);
     setResizeLimits (designW * 3 / 4, designH * 3 / 4, designW * 2, designH * 2);
@@ -127,6 +138,10 @@ void NebulonEditor::Content::resized()
     // title area is painted; scope in the middle; presets on the right
     row1.removeFromLeft (230);
     auto presetArea = row1.removeFromRight (420);
+    auto btns = row1.removeFromRight (232).withSizeKeepingCentre (232, 32);
+    e.previewBtn.setBounds (btns.removeFromLeft (114));
+    btns.removeFromLeft (4);
+    e.inspireBtn.setBounds (btns);
     e.scope.setBounds (row1.reduced (12, 2));
     auto pr = presetArea.withSizeKeepingCentre (presetArea.getWidth(), 30);
     e.saveBtn.setBounds (pr.removeFromRight (64));
@@ -142,7 +157,8 @@ void NebulonEditor::Content::resized()
     body.removeFromTop (headerBounds.getBottom() + 8);
     e.keyboard.setBounds (body.removeFromBottom (72).withTrimmedBottom (10));
     e.keyboard.setKeyWidth ((float) e.keyboard.getWidth() / 43.0f);
-    body.removeFromBottom (6);
+    e.infoArea = body.removeFromBottom (24);
+    body.removeFromBottom (4);
     for (auto& pg : e.pages) pg->setBounds (body);
 }
 
@@ -171,6 +187,16 @@ void NebulonEditor::Content::paint (juce::Graphics& g)
     g.setColour (colours::textDim);
     g.setFont (juce::Font (juce::FontOptions (10.0f)).withExtraKerningFactor (0.12f));
     g.drawText ("HYBRID ATMOSPHERE SYNTHESIZER", t, juce::Justification::topLeft);
+
+    // info bar
+    auto ib = owner.infoArea.toFloat();
+    g.setColour (colours::panel.withAlpha (0.8f));
+    g.fillRoundedRectangle (ib, 6.0f);
+    g.setColour (colours::layerA);
+    g.fillEllipse (ib.getX() + 10, ib.getCentreY() - 3, 6, 6);
+    g.setColour (colours::text.withAlpha (0.85f));
+    g.setFont (juce::Font (juce::FontOptions (12.5f)));
+    g.drawText (owner.infoText, owner.infoArea.withTrimmedLeft (24).withTrimmedRight (10), juce::Justification::centredLeft, true);
 }
 
 //==============================================================================
@@ -218,8 +244,81 @@ void NebulonEditor::savePresetDialog()
     }), true);
 }
 
+void NebulonEditor::updateInfo()
+{
+    static const char* tips[] = {
+        "Press PREVIEW to hear this patch play a phrase - no keyboard needed.",
+        "Drag the Nebula Pad on the MAIN page while notes play to morph the sound.",
+        "Hit INSPIRE for a brand-new patch. Like it? Press SAVE.",
+        "Play with your computer keyboard: A W S E D F T G Y H U J K = C to C (click the keys first).",
+        "Load your own audio into any layer: pick the Granular or Sample engine, then 'Load Sample...'.",
+        "Double-click any knob to reset it.",
+        "The MODULATION tab lets you connect LFOs, envelopes, velocity, mod wheel or macros to almost anything.",
+        "Stack up to four layers - each can be Analog, Wavetable, FM, Granular or Sample.",
+        "Use Harmony 1 / 2 on a layer page to turn single notes into chords.",
+    };
+    juce::String text;
+
+    if (auto* under = juce::Desktop::getInstance().getMainMouseSource().getComponentUnderMouse())
+    {
+        if (content.isParentOf (under))
+        {
+            for (auto* c = under; c != nullptr && c != &content; c = c->getParentComponent())
+            {
+                if (auto* s = dynamic_cast<juce::Slider*> (c))
+                {
+                    text = s->getTooltip() + ":  " + s->getTextFromValue (s->getValue()) + "      (double-click to reset)";
+                    break;
+                }
+                if (auto* cb = dynamic_cast<juce::ComboBox*> (c))
+                {
+                    text = cb->getText();
+                    if (auto* ch = dynamic_cast<neb::ui::Choice*> (cb->getParentComponent())) text = ch->label.getText() + ":  " + text;
+                    break;
+                }
+                if (dynamic_cast<neb::ui::NebulaPad*> (c) != nullptr)
+                {
+                    text = "Nebula Pad: drag left/right for TONE (brightness), up/down for MORPH (timbre).";
+                    break;
+                }
+                if (auto* tt = dynamic_cast<juce::TooltipClient*> (c))
+                    if (tt->getTooltip().isNotEmpty()) { text = tt->getTooltip(); break; }
+            }
+        }
+    }
+
+    if (text.isEmpty())
+    {
+        const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+        if (proc.currentPresetName != lastPresetSeen) { lastPresetSeen = proc.currentPresetName; presetChangedAt = now; }
+        const auto desc = proc.getPresetDescription();
+        if (desc.isNotEmpty() && now - presetChangedAt < 7.0)
+            text = proc.currentPresetName.trimCharactersAtStart ("~ ") + "  -  " + desc;
+        else
+        {
+            tipIndex = (int) (now / 7.0) % (int) std::size (tips);
+            text = juce::String ("Tip:  ") + tips[tipIndex];
+        }
+    }
+
+    if (text != infoText)
+    {
+        infoText = text;
+        content.repaint (infoArea);
+    }
+}
+
 void NebulonEditor::timerCallback()
 {
+    if (! focusGrabbed && keyboard.isShowing())
+    {
+        focusGrabbed = true;
+        keyboard.grabKeyboardFocus();
+    }
+    updateInfo();
+    previewBtn.setToggleState (proc.preview.enabled.load(), juce::dontSendNotification);
+    previewBtn.setButtonText (previewBtn.getToggleState() ? "STOP" : "PREVIEW");
+    if (previewBtn.getToggleState()) previewBtn.repaint();
     scope.repaint();
     pages[(size_t) currentPage]->refresh();
     if (presetBox.getText() != proc.currentPresetName && ! presetBox.isPopupActive())

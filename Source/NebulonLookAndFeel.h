@@ -64,7 +64,7 @@ public:
         g.strokePath (bgArc, juce::PathStrokeType (track, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         // value arc, bipolar params draw from the centre
-        const bool bipolar = s.getMinimum() < 0 && s.getMaximum() > 0;
+        const bool bipolar = (s.getMinimum() < 0 && s.getMaximum() > 0) || (bool) s.getProperties().getWithDefault ("bipolar", false);
         const float from = bipolar ? (startAngle + endAngle) * 0.5f : startAngle;
         juce::Path valArc;
         valArc.addCentredArc (c.x, c.y, arcR, arcR, 0, juce::jmin (from, angle), juce::jmax (from, angle), true);

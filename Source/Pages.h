@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Controls.h"
+#include "Widgets.h"
 
 namespace neb::ui
 {
@@ -26,6 +27,7 @@ public:
 
 private:
     Panel* strips[numLayers] {};
+    NebulaPad pad;
     Panel* macros = nullptr;
     Panel* perf = nullptr;
     juce::TextButton editButtons[numLayers];

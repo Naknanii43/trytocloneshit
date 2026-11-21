@@ -70,4 +70,12 @@ if(NEBULON_BUILD_TESTS)
     target_link_libraries(NebulonRenderTest PRIVATE
         juce::juce_audio_utils juce::juce_dsp juce::juce_audio_formats
         juce::juce_recommended_config_flags)
+
+    juce_add_console_app(NebulonDemoRender PRODUCT_NAME "NebulonDemoRender")
+    target_sources(NebulonDemoRender PRIVATE tools/DemoRender.cpp ${NEBULON_SOURCES})
+    target_compile_definitions(NebulonDemoRender PRIVATE
+        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1)
+    target_link_libraries(NebulonDemoRender PRIVATE
+        juce::juce_audio_utils juce::juce_dsp juce::juce_audio_formats
+        juce::juce_recommended_config_flags)
 endif()

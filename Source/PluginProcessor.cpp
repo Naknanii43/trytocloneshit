@@ -121,7 +121,9 @@ APVTS::ParameterLayout NebulonProcessor::createLayout()
     layout.add (std::make_unique<F> (id ("glide"), "Glide", skewed (0.0f, 2.0f, 0.3f), 0.0f, withText (secs)));
     layout.add (std::make_unique<I> (id ("bend"), "Bend Range", 1, 24, 2));
     for (int i = 1; i <= numMacros; ++i)
-        layout.add (std::make_unique<F> (id ("macro" + juce::String (i)), "Macro " + juce::String (i), unit, 0.0f, withText (pct)));
+        layout.add (std::make_unique<F> (id ("macro" + juce::String (i)), "Macro " + juce::String (i), unit, 0.5f,
+                                         withText ([] (float v, int) { const int p = juce::roundToInt ((v - 0.5f) * 200.0f);
+                                                                       return (p > 0 ? "+" : "") + juce::String (p) + "%"; })));
 
     // modulation
     for (int i = 1; i <= numLfos; ++i)
@@ -232,6 +234,7 @@ void NebulonProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     synth.setCurrentPlaybackSampleRate (sampleRate);
     fx.prepare (sampleRate, samplesPerBlock);
     arp.prepare (sampleRate);
+    preview.prepare (sampleRate);
 }
 
 void NebulonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -259,6 +262,7 @@ void NebulonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
         shared.lfoPhase[k].store (ph - std::floor (ph));
     }
 
+    preview.process (midi, n, bpm);
     keyboardState.processNextMidiBuffer (midi, 0, n, true);
 
     for (const auto m : midi)
@@ -327,6 +331,8 @@ void NebulonProcessor::setCurrentProgram (int index)
     if (! juce::isPositiveAndBelow (index, (int) presets.size())) return;
     currentProgram = index;
     currentPresetName = presets[(size_t) index].name;
+    currentCategory = presets[(size_t) index].category;
+    preview.type.store (phraseTypeForCategory (currentCategory));
 
     resetToDefaults();
     for (const auto& [pid, value] : presets[(size_t) index].values)
@@ -358,6 +364,7 @@ bool NebulonProcessor::saveUserPreset (const juce::String& name)
     for (int l = 0; l < numLayers; ++l)
         if (apvts.state.hasProperty (layerPrefix (l) + "samplePath"))
             state.setProperty (layerPrefix (l) + "samplePath", apvts.state.getProperty (layerPrefix (l) + "samplePath"), nullptr);
+    state.setProperty ("category", currentCategory, nullptr);
     auto xml = state.createXml();
     if (xml == nullptr) return false;
     const auto file = folder.getChildFile (juce::File::createLegalFileName (name) + ".nebpreset");
@@ -378,7 +385,167 @@ bool NebulonProcessor::loadUserPreset (const juce::File& file)
         if (path.isNotEmpty()) loadUserSample (l, juce::File (path));
     }
     currentPresetName = file.getFileNameWithoutExtension();
+    currentCategory = tree.getProperty ("category", "Pads").toString();
+    preview.type.store (phraseTypeForCategory (currentCategory));
     return true;
+}
+
+//==============================================================================
+juce::String NebulonProcessor::getPresetDescription() const
+{
+    juce::String d = presetDescription (currentPresetName);
+    if (d.isEmpty() && currentPresetName.startsWith ("~"))
+        d = "A freshly invented " + currentCategory.toLowerCase() + " patch. Like it? Hit SAVE to keep it.";
+    return d;
+}
+
+void NebulonProcessor::setParam (const juce::String& id, float value)
+{
+    auto* p = apvts.getParameter (id);
+    jassert (p != nullptr);
+    if (p != nullptr) p->setValueNotifyingHost (p->convertTo0to1 (value));
+}
+
+void NebulonProcessor::inspire()
+{
+    juce::Random r;
+    auto rf = [&] (float a, float b) { return a + (b - a) * r.nextFloat(); };
+    auto rlog = [&] (float a, float b) { return a * std::pow (b / a, r.nextFloat()); };
+    auto pick = [&] (std::initializer_list<int> v) { return *(v.begin() + r.nextInt ((int) v.size())); };
+
+    resetToDefaults();
+
+    enum { pad, pluck, keys, bass, lead, texture, arpPatch };
+    static const char* cats[] = { "Pads", "Plucks", "Keys", "Bass", "Leads", "Textures", "Arps" };
+    const int type = r.nextInt (7);
+    currentCategory = cats[type];
+    const bool monoType = type == bass || type == lead;
+
+    const int numL = monoType ? 1 + r.nextInt (2) : (type == pad || type == texture ? 2 + r.nextInt (2) : 1 + r.nextInt (2));
+    for (int l = 0; l < numL; ++l)
+    {
+        const auto p = layerPrefix (l);
+        setParam (p + "on", 1);
+        int mode = pick ({ 0, 0, 1, 1, 1, 2, 3, 3, 4 });
+        if (type == texture) mode = pick ({ 3, 3, 3, 1, 4 });
+        if (type == bass) mode = pick ({ 0, 0, 1, 2 });
+        setParam (p + "mode", (float) mode);
+        setParam (p + "wave", rf (0.0f, 3.0f));
+        setParam (p + "wtTable", (float) r.nextInt (9));
+        setParam (p + "wtPos", rf (0, 1));
+        setParam (p + "fmRatio", (float) pick ({ 1, 1, 2, 2, 3, 4 }) + (r.nextFloat() < 0.2f ? 0.5f : 0.0f));
+        setParam (p + "fmIndex", rf (0.4f, 3.5f));
+        setParam (p + "fmFb", r.nextFloat() < 0.3f ? rf (0, 0.6f) : 0.0f);
+        setParam (p + "src", (float) r.nextInt (9));
+        setParam (p + "grSize", rlog (30, 600));
+        setParam (p + "grDensity", rlog (6, 60));
+        setParam (p + "grPos", rf (0.05f, 0.9f));
+        setParam (p + "grSpray", rf (0, 0.9f));
+        setParam (p + "grPitch", r.nextFloat() < 0.3f ? rf (0, 0.4f) : 0.0f);
+        setParam (p + "smpLoop", type == pluck || type == keys ? 0.0f : 1.0f);
+
+        setParam (p + "unison", (float) (mode == 3 ? 1 : pick ({ 1, 2, 3, 5, 7 })));
+        setParam (p + "detune", rf (4, 28));
+        setParam (p + "spread", rf (0.4f, 1.0f));
+        if (l > 0) setParam (p + "octave", (float) pick ({ -1, 0, 1, 1 }));
+        if (type == bass) setParam (p + "octave", (float) pick ({ -1, -2 }));
+        if (! monoType && r.nextFloat() < 0.25f) setParam (p + "harm1", (float) pick ({ 7, 12, 5, -12 }));
+        setParam (p + "drift", rf (0.1f, 0.7f));
+        setParam (p + "sub", type == bass ? rf (0.3f, 0.8f) : (r.nextFloat() < 0.2f ? rf (0, 0.4f) : 0.0f));
+        setParam (p + "noise", r.nextFloat() < 0.2f ? rf (0, 0.25f) : 0.0f);
+        setParam (p + "drive", rf (0, type == bass ? 0.6f : 0.3f));
+        setParam (p + "level", l == 0 ? 0.8f : rf (0.3f, 0.55f));
+        setParam (p + "pan", l == 0 ? 0.0f : rf (-0.4f, 0.4f));
+
+        setParam (p + "ftype", (float) pick ({ 1, 1, 1, 0, 0, 2, 7, 4 }));
+        setParam (p + "reso", rf (0, 0.5f));
+        switch (type)
+        {
+            case pad: case texture:
+                setParam (p + "cutoff", rlog (800, 6000));
+                setParam (p + "aA", rf (0.4f, 2.5f)); setParam (p + "aD", rf (0.5f, 2)); setParam (p + "aS", rf (0.6f, 1)); setParam (p + "aR", rf (1.5f, 4));
+                break;
+            case pluck: case arpPatch:
+                setParam (p + "cutoff", rlog (300, 1500)); setParam (p + "fenv", rf (0.4f, 0.8f));
+                setParam (p + "fA", 0.001f); setParam (p + "fD", rf (0.1f, 0.4f)); setParam (p + "fS", rf (0, 0.2f));
+                setParam (p + "aA", 0.001f); setParam (p + "aD", rf (0.2f, 0.8f)); setParam (p + "aS", type == arpPatch ? rf (0, 0.4f) : 0.0f); setParam (p + "aR", rf (0.2f, 0.8f));
+                break;
+            case keys:
+                setParam (p + "cutoff", rlog (1500, 8000));
+                setParam (p + "aA", 0.002f); setParam (p + "aD", rf (1, 3)); setParam (p + "aS", rf (0.1f, 0.4f)); setParam (p + "aR", rf (0.4f, 1.5f));
+                break;
+            case bass:
+                setParam (p + "cutoff", rlog (200, 900)); setParam (p + "fenv", rf (0.2f, 0.6f)); setParam (p + "fD", rf (0.15f, 0.5f));
+                setParam (p + "aA", 0.002f); setParam (p + "aS", 1.0f); setParam (p + "aR", rf (0.08f, 0.25f));
+                break;
+            default: // lead
+                setParam (p + "cutoff", rlog (2000, 9000));
+                setParam (p + "aA", rf (0.003f, 0.08f)); setParam (p + "aS", 1.0f); setParam (p + "aR", rf (0.2f, 0.6f));
+                break;
+        }
+    }
+
+    // modulation: a few musical routings
+    int slot = 1;
+    auto route = [&] (int src, int dst, float amt, int layer = 0)
+    {
+        const auto m = "m" + juce::String (slot++) + "_";
+        setParam (m + "src", (float) src); setParam (m + "dst", (float) dst);
+        setParam (m + "layer", (float) layer); setParam (m + "amt", amt);
+    };
+    const bool slow = type == pad || type == texture;
+    setParam ("lfo1_rate", slow ? rlog (0.04f, 0.3f) : rlog (0.2f, 3.0f));
+    setParam ("lfo1_shape", (float) pick ({ 0, 1, 6, 6 }));
+    route (srcLfo1, pick ({ dstCutoff, dstTimbre, dstTimbre, dstPan }), rf (0.15f, 0.45f));
+    if (r.nextFloat() < 0.6f)
+    {
+        setParam ("lfo2_rate", rlog (0.05f, 0.5f));
+        setParam ("lfo2_shape", 6);
+        route (srcLfo2, pick ({ dstTimbre, dstPan, dstCutoff }), rf (0.2f, 0.5f), numL > 1 ? 1 + r.nextInt (numL) : 0);
+    }
+    if (type == lead)
+    {
+        setParam ("lfo3_rate", rf (4.5f, 6.0f)); setParam ("lfo3_fade", rf (0.3f, 1.0f));
+        route (srcLfo3, dstPitch, rf (0.005f, 0.012f));
+        setParam ("glide", rf (0.03f, 0.12f));
+    }
+    if (r.nextFloat() < 0.4f) route (srcVelocity, dstCutoff, rf (0.15f, 0.35f));
+    if (r.nextFloat() < 0.2f && ! monoType) route (srcRandom, dstPan, rf (0.3f, 0.7f));
+
+    if (monoType) setParam ("mono", 1);
+    if (type == arpPatch)
+    {
+        setParam ("arpOn", 1);
+        setParam ("arpMode", (float) r.nextInt (6));
+        setParam ("arpDiv", (float) pick ({ 8, 9, 10, 12, 12, 13 }));
+        setParam ("arpOct", (float) (1 + r.nextInt (3)));
+        setParam ("arpGate", rf (0.3f, 0.8f));
+    }
+
+    // effects
+    setParam ("chOn", r.nextFloat() < 0.6f ? 1.0f : 0.0f);
+    setParam ("chorusMix", rf (0.2f, 0.5f));
+    setParam ("dlOn", r.nextFloat() < 0.7f ? 1.0f : 0.0f);
+    setParam ("delayDiv", (float) pick ({ 6, 8, 9, 10 }));
+    setParam ("delayMix", rf (0.1f, 0.35f));
+    setParam ("delayFb", rf (0.25f, 0.6f));
+    setParam ("revMix", slow ? rf (0.35f, 0.6f) : rf (0.1f, 0.35f));
+    setParam ("revSize", slow ? rf (0.8f, 0.98f) : rf (0.5f, 0.85f));
+    setParam ("phOn", r.nextFloat() < 0.15f ? 1.0f : 0.0f);
+    setParam ("distOn", r.nextFloat() < (type == bass ? 0.5f : 0.12f) ? 1.0f : 0.0f);
+    setParam ("distType", (float) r.nextInt (4));
+    setParam ("distDrive", rf (0.1f, 0.4f));
+    if (type == bass) { setParam ("chOn", 0); setParam ("dlOn", 0); setParam ("revMix", rf (0.05f, 0.12f)); }
+
+    static const char* adj[] = { "Velvet", "Hollow", "Neon", "Silent", "Golden", "Frozen", "Drifting", "Electric", "Lunar",
+                                 "Crystal", "Ancient", "Midnight", "Solar", "Liquid", "Distant", "Burning", "Gentle", "Fractured",
+                                 "Shimmering", "Hidden", "Wandering", "Cosmic", "Dusty", "Glowing" };
+    static const char* noun[] = { "Comet", "Tide", "Cathedral", "Signal", "Horizon", "Ember", "Orchard", "Cascade", "Mirage",
+                                  "Voyager", "Lantern", "Echo", "Glacier", "Garden", "Pulse", "Aurora", "Harbor", "Prism",
+                                  "Satellite", "Meadow", "Monolith", "Vapor", "Dune", "Lighthouse" };
+    currentPresetName = juce::String ("~ ") + adj[r.nextInt (24)] + " " + noun[r.nextInt (24)];
+    currentProgram = 0;
+    preview.type.store (phraseTypeForCategory (currentCategory));
 }
 
 //==============================================================================
@@ -438,6 +605,7 @@ void NebulonProcessor::getStateInformation (juce::MemoryBlock& destData)
     auto state = apvts.copyState();
     state.setProperty ("program", currentProgram, nullptr);
     state.setProperty ("presetName", currentPresetName, nullptr);
+    state.setProperty ("category", currentCategory, nullptr);
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
@@ -450,6 +618,8 @@ void NebulonProcessor::setStateInformation (const void* data, int sizeInBytes)
             auto tree = juce::ValueTree::fromXml (*xml);
             currentProgram = tree.getProperty ("program", 0);
             currentPresetName = tree.getProperty ("presetName", "").toString();
+            currentCategory = tree.getProperty ("category", "Pads").toString();
+            preview.type.store (phraseTypeForCategory (currentCategory));
             apvts.replaceState (tree);
             for (int l = 0; l < numLayers; ++l)
             {
