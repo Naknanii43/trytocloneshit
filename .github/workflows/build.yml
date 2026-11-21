@@ -1,0 +1,49 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxcomposite-dev libxext-dev libfreetype-dev libfontconfig1-dev \
+            libgl1-mesa-dev ninja-build
+
+      - name: Configure
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DNEBULON_BUILD_TESTS=ON
+          else
+            cmake -B build -DCMAKE_BUILD_TYPE=Release -DNEBULON_BUILD_TESTS=ON
+          fi
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Smoke test (render all presets)
+        if: runner.os == 'Linux'
+        run: ./build/NebulonRenderTest_artefacts/Release/NebulonRenderTest render-out
+
+      - name: Upload plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nebulon-${{ runner.os }}
+          path: |
+            build/Nebulon_artefacts/Release/VST3
+            build/Nebulon_artefacts/Release/AU
+            build/Nebulon_artefacts/Release/Standalone
