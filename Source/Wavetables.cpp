@@ -7,11 +7,11 @@ namespace neb
 {
 namespace
 {
+constexpr int N = Wavetable::size; // file scope so lambdas can use it without capturing (MSVC)
 using FrameFn = std::function<void (int frame, int frames, float* out /* size samples */)>;
 
 void additive (float* out, const std::function<float (int h)>& amp, int maxH = 128)
 {
-    const int N = Wavetable::size;
     for (int i = 0; i < N; ++i) out[i] = 0.0f;
     for (int h = 1; h <= maxH; ++h)
     {
@@ -30,7 +30,7 @@ float formantGain (float hz, float f1, float f2, float f3)
 
 Wavetable build (const juce::String& name, int frames, const FrameFn& fn)
 {
-    constexpr int N = Wavetable::size, L = Wavetable::levels;
+    constexpr int L = Wavetable::levels;
     Wavetable t;
     t.name = name;
     t.frames = frames;
@@ -71,7 +71,6 @@ Wavetable build (const juce::String& name, int frames, const FrameFn& fn)
 
 std::vector<Wavetable> buildAll()
 {
-    constexpr int N = Wavetable::size;
     std::vector<Wavetable> v;
 
     v.push_back (build ("Classic Morph", 32, [] (int f, int F, float* o)

@@ -32,8 +32,16 @@ jobs:
             cmake -B build -DCMAKE_BUILD_TYPE=Release -DNEBULON_BUILD_TESTS=ON
           fi
 
-      - name: Build
-        run: cmake --build build --config Release --parallel
+      - name: Build plugin
+        run: cmake --build build --config Release --target Nebulon_VST3 Nebulon_Standalone --parallel 2
+
+      - name: Build AU (macOS)
+        if: runner.os == 'macOS'
+        run: cmake --build build --config Release --target Nebulon_AU --parallel 2
+
+      - name: Build test tool (Linux)
+        if: runner.os == 'Linux'
+        run: cmake --build build --config Release --target NebulonRenderTest --parallel 2
 
       - name: Smoke test (render all presets)
         if: runner.os == 'Linux'
