@@ -75,17 +75,23 @@ void addLayer (APVTS::ParameterLayout& layout, int index)
     layout.add (std::make_unique<F> (id ("grPitch"), L + "Grain Pitch Rand", unit, 0.0f, withText (pct)));
     layout.add (std::make_unique<F> (id ("smpStart"), L + "Sample Start", unit, 0.0f, withText (pct)));
     layout.add (std::make_unique<B> (id ("smpLoop"), L + "Sample Loop", true));
+    layout.add (std::make_unique<F> (id ("plkTone"), L + "Pluck Brightness", unit, 0.6f, withText (pct)));
+    layout.add (std::make_unique<F> (id ("plkDecay"), L + "Pluck Decay", skewed (0.05f, 20.0f, 2.0f), 2.5f, withText (secs)));
+    layout.add (std::make_unique<F> (id ("plkBow"), L + "Pluck Bow", unit, 0.0f, withText (pct)));
+    layout.add (std::make_unique<F> (id ("pitchEnv"), L + "Pitch Env Amount", juce::NormalisableRange<float> (-48, 48), 0.0f,
+                                     withText ([] (float v, int) { return juce::String (v, 1) + " st"; })));
+    layout.add (std::make_unique<F> (id ("pitchDecay"), L + "Pitch Env Decay", skewed (0.002f, 2.0f, 0.1f), 0.08f, withText (secs)));
 
-    layout.add (std::make_unique<I> (id ("unison"), L + "Unison", 1, 7, 3));
+    layout.add (std::make_unique<I> (id ("unison"), L + "Unison", 1, 7, 1));
     layout.add (std::make_unique<F> (id ("detune"), L + "Detune", juce::NormalisableRange<float> (0, 100), 12.0f, withText (cents)));
-    layout.add (std::make_unique<F> (id ("spread"), L + "Stereo Width", unit, 0.7f, withText (pct)));
+    layout.add (std::make_unique<F> (id ("spread"), L + "Stereo Width", unit, 0.5f, withText (pct)));
     layout.add (std::make_unique<I> (id ("harm1"), L + "Harmony 1", -24, 24, 0));
     layout.add (std::make_unique<I> (id ("harm2"), L + "Harmony 2", -24, 24, 0));
 
     layout.add (std::make_unique<F> (id ("sub"), L + "Sub", unit, 0.0f, withText (pct)));
     layout.add (std::make_unique<F> (id ("noise"), L + "Noise", unit, 0.0f, withText (pct)));
-    layout.add (std::make_unique<F> (id ("drift"), L + "Analog Drift", unit, 0.3f, withText (pct)));
-    layout.add (std::make_unique<F> (id ("drive"), L + "Drive", unit, 0.1f, withText (pct)));
+    layout.add (std::make_unique<F> (id ("drift"), L + "Analog Drift", unit, 0.1f, withText (pct)));
+    layout.add (std::make_unique<F> (id ("drive"), L + "Drive", unit, 0.0f, withText (pct)));
 
     layout.add (std::make_unique<C> (id ("ftype"), L + "Filter Type", filterNames(), 1));
     layout.add (std::make_unique<F> (id ("cutoff"), L + "Cutoff", skewed (20, 20000, 1000), 5000.0f, withText (hz)));
@@ -181,11 +187,11 @@ APVTS::ParameterLayout NebulonProcessor::createLayout()
     layout.add (std::make_unique<F> (id ("phDepth"), "Phaser Depth", unit, 0.6f, withText (pct)));
     layout.add (std::make_unique<F> (id ("phFb"), "Phaser Feedback", juce::NormalisableRange<float> (-0.9f, 0.9f), 0.4f, withText (pct)));
     layout.add (std::make_unique<F> (id ("phMix"), "Phaser Mix", unit, 0.5f, withText (pct)));
-    layout.add (std::make_unique<B> (id ("chOn"), "Chorus On", true));
+    layout.add (std::make_unique<B> (id ("chOn"), "Chorus On", false));
     layout.add (std::make_unique<F> (id ("chorusRate"), "Chorus Rate", skewed (0.05f, 5.0f, 0.8f), 0.4f, withText (hz)));
     layout.add (std::make_unique<F> (id ("chorusDepth"), "Chorus Depth", unit, 0.4f, withText (pct)));
     layout.add (std::make_unique<F> (id ("chorusMix"), "Chorus Mix", unit, 0.3f, withText (pct)));
-    layout.add (std::make_unique<B> (id ("dlOn"), "Delay On", true));
+    layout.add (std::make_unique<B> (id ("dlOn"), "Delay On", false));
     layout.add (std::make_unique<F> (id ("delayTime"), "Delay Time", skewed (10.0f, 2000.0f, 400.0f), 375.0f,
                                      withText ([] (float v, int) { return juce::String (v, 0) + " ms"; })));
     layout.add (std::make_unique<B> (id ("delaySync"), "Delay Sync", true));
@@ -193,7 +199,7 @@ APVTS::ParameterLayout NebulonProcessor::createLayout()
     layout.add (std::make_unique<F> (id ("delayFb"), "Delay Feedback", juce::NormalisableRange<float> (0, 0.95f), 0.35f, withText (pct)));
     layout.add (std::make_unique<F> (id ("delayMix"), "Delay Mix", unit, 0.2f, withText (pct)));
     layout.add (std::make_unique<B> (id ("delayPing"), "Delay Ping-Pong", true));
-    layout.add (std::make_unique<B> (id ("rvOn"), "Reverb On", true));
+    layout.add (std::make_unique<B> (id ("rvOn"), "Reverb On", false));
     layout.add (std::make_unique<F> (id ("revSize"), "Reverb Size", unit, 0.75f, withText (pct)));
     layout.add (std::make_unique<F> (id ("revDamp"), "Reverb Damping", unit, 0.4f, withText (pct)));
     layout.add (std::make_unique<F> (id ("revWidth"), "Reverb Width", unit, 1.0f, withText (pct)));
@@ -245,14 +251,15 @@ void NebulonProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
 
     // tempo / transport
     double bpm = 120.0, ppq = 0.0;
-    bool hostPlaying = false;
+    bool hostPlaying = false, hostTempo = false;
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
         {
-            if (auto b = pos->getBpm()) bpm = *b;
+            if (auto b = pos->getBpm()) { bpm = *b; hostTempo = true; }
             if (auto p = pos->getPpqPosition()) ppq = *p;
             hostPlaying = pos->getIsPlaying() && pos->getPpqPosition().hasValue();
         }
+    if (preview.enabled.load() && ! hostTempo) bpm = preview.songTempo();
     shared.bpm.store ((float) bpm);
 
     // free-running LFO phases (used by LFOs with retrigger off)
@@ -333,6 +340,7 @@ void NebulonProcessor::setCurrentProgram (int index)
     currentPresetName = presets[(size_t) index].name;
     currentCategory = presets[(size_t) index].category;
     preview.type.store (phraseTypeForCategory (currentCategory));
+    preview.song.store (songForPreset (currentPresetName, currentCategory));
 
     resetToDefaults();
     for (const auto& [pid, value] : presets[(size_t) index].values)
@@ -387,6 +395,7 @@ bool NebulonProcessor::loadUserPreset (const juce::File& file)
     currentPresetName = file.getFileNameWithoutExtension();
     currentCategory = tree.getProperty ("category", "Pads").toString();
     preview.type.store (phraseTypeForCategory (currentCategory));
+    preview.song.store (songForPreset (currentPresetName, currentCategory));
     return true;
 }
 
@@ -426,7 +435,7 @@ void NebulonProcessor::inspire()
     {
         const auto p = layerPrefix (l);
         setParam (p + "on", 1);
-        int mode = pick ({ 0, 0, 1, 1, 1, 2, 3, 3, 4 });
+        int mode = pick ({ 0, 0, 1, 1, 1, 2, 3, 3, 4, 5, 5 });
         if (type == texture) mode = pick ({ 3, 3, 3, 1, 4 });
         if (type == bass) mode = pick ({ 0, 0, 1, 2 });
         setParam (p + "mode", (float) mode);
@@ -443,6 +452,10 @@ void NebulonProcessor::inspire()
         setParam (p + "grSpray", rf (0, 0.9f));
         setParam (p + "grPitch", r.nextFloat() < 0.3f ? rf (0, 0.4f) : 0.0f);
         setParam (p + "smpLoop", type == pluck || type == keys ? 0.0f : 1.0f);
+        setParam (p + "plkTone", rf (0.3f, 0.95f));
+        setParam (p + "plkDecay", (type == pad || type == texture) ? rf (3, 10) : rf (0.6f, 4));
+        setParam (p + "plkBow", (type == pad || type == texture) && r.nextFloat() < 0.5f ? rf (0.2f, 0.7f) : 0.0f);
+        if ((type == pluck || type == bass) && r.nextFloat() < 0.3f) { setParam (p + "pitchEnv", rf (2, 12)); setParam (p + "pitchDecay", rf (0.02f, 0.1f)); }
 
         setParam (p + "unison", (float) (mode == 3 ? 1 : pick ({ 1, 2, 3, 5, 7 })));
         setParam (p + "detune", rf (4, 28));
@@ -529,7 +542,8 @@ void NebulonProcessor::inspire()
     setParam ("delayDiv", (float) pick ({ 6, 8, 9, 10 }));
     setParam ("delayMix", rf (0.1f, 0.35f));
     setParam ("delayFb", rf (0.25f, 0.6f));
-    setParam ("revMix", slow ? rf (0.35f, 0.6f) : rf (0.1f, 0.35f));
+    setParam ("rvOn", slow || r.nextFloat() < 0.5f ? 1.0f : 0.0f);
+    setParam ("revMix", slow ? rf (0.35f, 0.6f) : rf (0.1f, 0.3f));
     setParam ("revSize", slow ? rf (0.8f, 0.98f) : rf (0.5f, 0.85f));
     setParam ("phOn", r.nextFloat() < 0.15f ? 1.0f : 0.0f);
     setParam ("distOn", r.nextFloat() < (type == bass ? 0.5f : 0.12f) ? 1.0f : 0.0f);
@@ -546,6 +560,7 @@ void NebulonProcessor::inspire()
     currentPresetName = juce::String ("~ ") + adj[r.nextInt (24)] + " " + noun[r.nextInt (24)];
     currentProgram = 0;
     preview.type.store (phraseTypeForCategory (currentCategory));
+    preview.song.store (songForPreset (currentPresetName, currentCategory));
 }
 
 //==============================================================================
@@ -620,6 +635,7 @@ void NebulonProcessor::setStateInformation (const void* data, int sizeInBytes)
             currentPresetName = tree.getProperty ("presetName", "").toString();
             currentCategory = tree.getProperty ("category", "Pads").toString();
             preview.type.store (phraseTypeForCategory (currentCategory));
+    preview.song.store (songForPreset (currentPresetName, currentCategory));
             apvts.replaceState (tree);
             for (int l = 0; l < numLayers; ++l)
             {

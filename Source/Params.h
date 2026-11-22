@@ -9,8 +9,8 @@ constexpr int numLayers = 4, numLfos = 4, numModEnvs = 2, numSlots = 12, numMacr
 
 inline juce::String layerPrefix (int l) { return juce::String::charToString ((juce::juce_wchar) ('A' + l)) + "_"; }
 
-enum Mode { modeAnalog, modeWavetable, modeFM, modeGranular, modeSample };
-inline juce::StringArray modeNames() { return { "Analog", "Wavetable", "FM", "Granular", "Sample" }; }
+enum Mode { modeAnalog, modeWavetable, modeFM, modeGranular, modeSample, modePluck };
+inline juce::StringArray modeNames() { return { "Analog", "Wavetable", "FM", "Granular", "Sample", "Pluck" }; }
 
 enum FilterType { fLP12, fLP24, fBand, fHigh, fNotch, fCombPos, fCombNeg, fVowel };
 inline juce::StringArray filterNames() { return { "LP 12", "LP 24", "Band", "High", "Notch", "Comb +", "Comb -", "Vowel" }; }

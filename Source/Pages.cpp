@@ -98,6 +98,19 @@ void LayerDisplay::paint (juce::Graphics& g)
         }
         plot ([&] (double ph) { return wtLookup (t, pos, ph, 0); });
     }
+    else if (mode == modePluck)
+    {
+        const float tone = param ("plkTone"), decay = param ("plkDecay");
+        juce::Random r (7);
+        float lp = 0.0f;
+        plot ([&] (double t)
+        {
+            const float env = std::exp (-(float) t * 4.0f / juce::jmax (0.2f, decay));
+            const float raw = (float) std::sin (twoPi * t * 9.0) * 0.6f + (r.nextFloat() * 2.0f - 1.0f) * 0.4f;
+            lp += (raw - lp) * (0.1f + 0.9f * tone);
+            return lp * env;
+        });
+    }
     else if (mode == modeFM)
     {
         const double ratio = param ("fmRatio");
@@ -207,17 +220,21 @@ LayerPage::LayerPage (NebulonProcessor& p, juce::Component* popup, int l)
     auto* gR = knob (pre + "grPitch", "Pitch Rnd", c);
     auto* sS = knob (pre + "smpStart", "Start", c);
     auto* sL = toggle (pre + "smpLoop", "LOOP", c);
+    auto* pT = knob (pre + "plkTone", "Brightness", c);
+    auto* pD = knob (pre + "plkDecay", "Decay", c);
+    auto* pB = knob (pre + "plkBow", "Bow", c);
 
     analogCtl = { wave };
     wtCtl = { table, wtPos };
     fmCtl = { fmR, fmI, fmF };
     granCtl = { gS, gD, gP, gY, gR };
     smpCtl = { sS, sL };
+    plkCtl = { pT, pD, pB };
     sourceCtl = { src, &loadButton };
 
     osc = panel ("OSCILLATOR", c);
     osc->addRow ({ mode, table, src, &loadButton });
-    osc->addRow ({ wave, wtPos, fmR, fmI, fmF, gS, gD, gP, gY, gR, sS, sL });
+    osc->addRow ({ wave, wtPos, fmR, fmI, fmF, gS, gD, gP, gY, gR, sS, sL, pT, pD, pB });
 
     addAndMakeVisible (display);
 
@@ -228,8 +245,8 @@ LayerPage::LayerPage (NebulonProcessor& p, juce::Component* popup, int l)
                      knob (pre + "harm1", "Harmony 1", c), knob (pre + "harm2", "Harmony 2", c) });
 
     texture = panel ("TEXTURE", c);
-    texture->addRow ({ knob (pre + "sub", "Sub", c), knob (pre + "noise", "Noise", c),
-                       knob (pre + "drift", "Drift", c), knob (pre + "drive", "Drive", c) });
+    texture->addRow ({ knob (pre + "sub", "Sub", c), knob (pre + "noise", "Noise", c), knob (pre + "drift", "Drift", c),
+                       knob (pre + "drive", "Drive", c), knob (pre + "pitchEnv", "Pitch Env", c), knob (pre + "pitchDecay", "P.Env Time", c) });
 
     filter = panel ("FILTER", c);
     filter->addRow ({ choice (pre + "ftype", "Type"), knob (pre + "cutoff", "Cutoff", c), knob (pre + "reso", "Reso", c),
@@ -262,6 +279,7 @@ void LayerPage::refresh()
         show (fmCtl, mode == modeFM);
         show (granCtl, mode == modeGranular);
         show (smpCtl, mode == modeSample);
+        show (plkCtl, mode == modePluck);
         show (sourceCtl, mode == modeGranular || mode == modeSample);
         osc->resized();
     }
@@ -284,9 +302,9 @@ void LayerPage::resized()
     top.removeFromLeft (gap);
     pitch->setBounds (top);
 
-    texture->setBounds (mid.removeFromLeft (mid.getWidth() * 30 / 100));
+    texture->setBounds (mid.removeFromLeft (mid.getWidth() * 38 / 100));
     mid.removeFromLeft (gap);
-    filter->setBounds (mid.removeFromLeft (mid.getWidth() * 55 / 100));
+    filter->setBounds (mid.removeFromLeft (mid.getWidth() * 52 / 100));
     mid.removeFromLeft (gap);
     output->setBounds (mid);
 

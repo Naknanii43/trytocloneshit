@@ -18,7 +18,8 @@ struct LayerParams
          unison{}, detune{}, spread{}, harm1{}, harm2{},
          sub{}, noise{}, drift{}, drive{},
          ftype{}, cutoff{}, reso{}, fenv{}, keytrack{},
-         aA{}, aD{}, aS{}, aR{}, fA{}, fD{}, fS{}, fR{}, velSens{};
+         aA{}, aD{}, aS{}, aR{}, fA{}, fD{}, fS{}, fR{}, velSens{},
+         plkTone{}, plkDecay{}, plkBow{}, pitchEnv{}, pitchDecay{};
 
     void bind (juce::AudioProcessorValueTreeState& s, const juce::String& p)
     {
@@ -39,6 +40,8 @@ struct LayerParams
         ftype = g ("ftype"); cutoff = g ("cutoff"); reso = g ("reso"); fenv = g ("fenv"); keytrack = g ("keytrack");
         aA = g ("aA"); aD = g ("aD"); aS = g ("aS"); aR = g ("aR");
         fA = g ("fA"); fD = g ("fD"); fS = g ("fS"); fR = g ("fR"); velSens = g ("velSens");
+        plkTone = g ("plkTone"); plkDecay = g ("plkDecay"); plkBow = g ("plkBow");
+        pitchEnv = g ("pitchEnv"); pitchDecay = g ("pitchDecay");
     }
 };
 
@@ -135,6 +138,13 @@ struct LayerState
     const SampleData* sample = nullptr;
     Grain grains[maxGrains];
     double grainTimer = 0;
+
+    // Karplus-Strong strings for the Pluck engine (one per unison voice)
+    static constexpr int maxStrings = 7, stringLen = 4096;
+    std::vector<float> strings = std::vector<float> ((size_t) (maxStrings * stringLen), 0.0f);
+    int strWrite[maxStrings] {};
+    float strLp[maxStrings] {}, exciteLp[maxStrings] {};
+    int exciteLeft = 0;
 };
 
 //==============================================================================

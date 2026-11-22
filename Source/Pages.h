@@ -48,7 +48,7 @@ private:
     LayerDisplay display;
     juce::TextButton loadButton { "Load Sample..." };
     std::unique_ptr<juce::FileChooser> chooser;
-    std::vector<juce::Component*> analogCtl, wtCtl, fmCtl, granCtl, smpCtl, sourceCtl;
+    std::vector<juce::Component*> analogCtl, wtCtl, fmCtl, granCtl, smpCtl, sourceCtl, plkCtl;
 };
 
 //==============================================================================

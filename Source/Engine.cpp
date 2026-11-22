@@ -71,6 +71,12 @@ void Voice::startNote (int midiNote, float velocity, juce::SynthesiserSound*, in
         }
         s.subPhase = 0;
         for (int c = 0; c < 2; ++c) { s.f1[c].reset(); s.f2[c].reset(); s.f3[c].reset(); s.comb[c].reset(); }
+        if ((int) p.mode->load() == modePluck)
+        {
+            std::fill (s.strings.begin(), s.strings.end(), 0.0f);
+            for (int k = 0; k < LayerState::maxStrings; ++k) { s.strWrite[k] = 0; s.strLp[k] = 0; s.exciteLp[k] = 0; }
+            s.exciteLeft = -1; // sized on the first render, once the pitch is known
+        }
         for (auto& g : s.grains) g.active = false;
         s.grainTimer = 0;
         s.amp.noteOn();
@@ -233,8 +239,10 @@ bool Voice::renderLayer (int l, float* outL, float* outR, int pos, int n)
     }
     s.driftVal += (s.driftTarget - s.driftVal) * juce::jmin (1.0f, 0.0005f * (float) n);
 
+    const float pEnvAmt = p.pitchEnv->load();
+    const double pitchEnvVal = pEnvAmt != 0.0f ? pEnvAmt * std::exp (-noteTime / juce::jmax (0.001f, p.pitchDecay->load())) : 0.0;
     const double basePitch = curPitch + 12.0 * p.octave->load() + p.semi->load() + p.fine->load() / 100.0
-                           + bend * sh.global.bend->load() + m[dstPitch] * 12.0 + s.driftVal * drift * 0.15;
+                           + bend * sh.global.bend->load() + m[dstPitch] * 12.0 + s.driftVal * drift * 0.15 + pitchEnvVal;
 
     double groupSemis[3] = { 0, 0, 0 };
     int groups = 1;
@@ -308,6 +316,46 @@ bool Voice::renderLayer (int l, float* outL, float* outR, int pos, int n)
                     }
                     s.phase[k] = ph; s.modPhase[k] = mph; s.fmPrev[k] = prev;
                 }
+                break;
+            }
+            case modePluck:
+            {
+                // Karplus-Strong: a noise burst circulating in a tuned, damped delay line.
+                const int ns = juce::jmin (slots, LayerState::maxStrings);
+                const float tone = juce::jlimit (0.0f, 1.0f, p.plkTone->load() + timbre);
+                const float decay = p.plkDecay->load();
+                const float bow = p.plkBow->load();
+                const float a = 0.12f + 0.88f * tone;               // loop brightness
+                const float ea = 0.04f + 0.96f * tone * tone;       // excitation brightness
+                if (s.exciteLeft < 0) s.exciteLeft = juce::jmax (8, (int) (1.0 / dt[0]));
+                const float lpDelay = (1.0f - a) / a;
+                for (int k = 0; k < ns; ++k)
+                {
+                    float* buf = s.strings.data() + (size_t) k * LayerState::stringLen;
+                    int w = s.strWrite[k];
+                    const double period = 1.0 / dt[k];
+                    const float d = juce::jlimit (2.0f, (float) LayerState::stringLen - 3.0f, (float) period - lpDelay);
+                    const float g = (float) std::exp (std::log (0.001) / (juce::jmax (0.02f, decay) * sr / period));
+                    int excite = s.exciteLeft;
+                    for (int i = 0; i < n; ++i)
+                    {
+                        float ex = 0.0f;
+                        if (excite > 0) { s.exciteLp[k] += (rng.nextFloat() * 2.0f - 1.0f - s.exciteLp[k]) * ea; ex = s.exciteLp[k]; --excite; }
+                        if (bow > 0.0f) ex += (rng.nextFloat() * 2.0f - 1.0f) * bow * 0.09f;
+                        float rp = (float) w - d;
+                        if (rp < 0) rp += (float) LayerState::stringLen;
+                        const int i0 = (int) rp;
+                        const float fr = rp - (float) i0;
+                        const float y = buf[i0] + (buf[(i0 + 1) & (LayerState::stringLen - 1)] - buf[i0]) * fr;
+                        s.strLp[k] += (y - s.strLp[k]) * a;
+                        const float v = s.strLp[k] * g + ex;
+                        buf[w] = v;
+                        w = (w + 1) & (LayerState::stringLen - 1);
+                        tl[i] += y * gl[k] * 1.5f; tr[i] += y * gr[k] * 1.5f;
+                    }
+                    s.strWrite[k] = w;
+                }
+                s.exciteLeft = juce::jmax (0, s.exciteLeft - n);
                 break;
             }
             case modeSample:
@@ -428,7 +476,7 @@ bool Voice::renderLayer (int l, float* outL, float* outR, int pos, int n)
     const float pan = juce::jlimit (-1.0f, 1.0f, p.pan->load() + m[dstPan]);
     const float pa = (pan + 1.0f) * (float) pi * 0.25f;
     const float panL = std::cos (pa) * 1.4142f, panR = std::sin (pa) * 1.4142f;
-    const float velGain = 1.0f - p.velSens->load() * (1.0f - vel);
+    const float velGain = (1.0f - p.velSens->load() * (1.0f - vel)) * (sh.global.mono->load() > 0.5f ? 2.0f : 1.0f);
 
     for (int i = 0; i < n; ++i)
     {

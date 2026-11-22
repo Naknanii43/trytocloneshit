@@ -497,13 +497,111 @@ inline std::vector<Preset> buildFactoryPresets()
             { "A_aA", 0.001f }, { "A_aD", 3.0f }, { "A_aS", 0 }, { "A_aR", 3.0f }, { "A_drive", 0.6f },
             { "B_on", 1 }, { "B_mode", 3 }, { "B_src", 3 }, { "B_level", 0.5f }, { "B_aA", 0.01f }, { "B_aD", 4 }, { "B_aS", 0 }, { "B_aR", 4 },
             { "distOn", 1 }, { "distDrive", 0.25f }, { "revSize", 1.0f }, { "revMix", 0.55f } } },
+        // ---------------------------------------------------------------- DRUMS (pitch envelope + noise)
+        { "Analog Kick", "Drums", {
+            { "A_wave", 0 }, { "A_octave", -2 }, { "A_pitchEnv", 36 }, { "A_pitchDecay", 0.035f }, { "A_keytrack", 0 },
+            { "A_aA", 0.001f }, { "A_aD", 0.45f }, { "A_aS", 0 }, { "A_aR", 0.2f }, { "A_drive", 0.45f }, { "A_velSens", 0.3f } } },
+        { "Punch Snare", "Drums", {
+            { "A_wave", 1 }, { "A_octave", -1 }, { "A_pitchEnv", 12 }, { "A_pitchDecay", 0.03f }, { "A_level", 0.55f },
+            { "A_aA", 0.001f }, { "A_aD", 0.12f }, { "A_aS", 0 }, { "A_aR", 0.1f },
+            { "B_on", 1 }, { "B_wave", 0 }, { "B_octave", -3 }, { "B_noise", 1 }, { "B_ftype", 3 }, { "B_cutoff", 1500 }, { "B_keytrack", 0 },
+            { "B_aA", 0.001f }, { "B_aD", 0.18f }, { "B_aS", 0 }, { "B_aR", 0.15f },
+            { "rvOn", 1 }, { "revSize", 0.3f }, { "revMix", 0.15f } } },
+        { "Closed Hat", "Drums", {
+            { "A_wave", 0 }, { "A_octave", -3 }, { "A_noise", 1 }, { "A_ftype", 3 }, { "A_cutoff", 8000 }, { "A_reso", 0.2f },
+            { "A_keytrack", 0 }, { "A_level", 1.0f }, { "A_aA", 0.001f }, { "A_aD", 0.05f }, { "A_aS", 0 }, { "A_aR", 0.05f } } },
+        { "Open Hat", "Drums", {
+            { "A_wave", 0 }, { "A_octave", -3 }, { "A_noise", 1 }, { "A_ftype", 3 }, { "A_cutoff", 7000 }, { "A_reso", 0.3f },
+            { "A_keytrack", 0 }, { "A_level", 1.0f }, { "A_aA", 0.001f }, { "A_aD", 0.35f }, { "A_aS", 0 }, { "A_aR", 0.3f } } },
+        { "Room Clap", "Drums", {
+            { "A_wave", 0 }, { "A_octave", -3 }, { "A_noise", 1 }, { "A_ftype", 2 }, { "A_cutoff", 1300 }, { "A_reso", 0.3f },
+            { "A_keytrack", 0 }, { "A_aA", 0.001f }, { "A_aD", 0.22f }, { "A_aS", 0 }, { "A_aR", 0.2f },
+            { "lfo1_rate", 30 }, { "lfo1_shape", 4 }, { "m1_src", 1 }, { "m1_dst", 4 }, { "m1_amt", 0.7f },
+            { "rvOn", 1 }, { "revSize", 0.4f }, { "revMix", 0.25f } } },
+        { "Deep Tom", "Drums", {
+            { "A_wave", 0 }, { "A_octave", -1 }, { "A_pitchEnv", 10 }, { "A_pitchDecay", 0.12f },
+            { "A_aA", 0.001f }, { "A_aD", 0.5f }, { "A_aS", 0 }, { "A_aR", 0.3f }, { "A_drive", 0.2f },
+            { "rvOn", 1 }, { "revSize", 0.5f }, { "revMix", 0.15f } } },
+        { "Laser Zap", "Drums", {
+            { "A_wave", 2 }, { "A_pitchEnv", 48 }, { "A_pitchDecay", 0.15f }, { "A_cutoff", 6000 },
+            { "A_aA", 0.001f }, { "A_aD", 0.3f }, { "A_aS", 0 }, { "A_aR", 0.2f }, { "dlOn", 1 }, { "delayMix", 0.25f } } },
+        { "808 Boom", "Bass", {
+            { "A_wave", 0 }, { "A_octave", -2 }, { "A_pitchEnv", 5 }, { "A_pitchDecay", 0.06f },
+            { "A_aA", 0.001f }, { "A_aD", 1.4f }, { "A_aS", 0 }, { "A_aR", 0.4f }, { "A_drive", 0.55f },
+            { "mono", 1 }, { "glide", 0.06f } } },
+
+        // ---------------------------------------------------------------- PLUCK ENGINE (physical strings)
+        { "Nylon Guitar", "Plucks", {
+            { "A_mode", 5 }, { "A_plkTone", 0.45f }, { "A_plkDecay", 3.0f }, { "A_ftype", 0 }, { "A_cutoff", 6000 },
+            { "A_aA", 0.001f }, { "A_aS", 1 }, { "A_aR", 0.4f }, { "A_velSens", 0.7f },
+            { "rvOn", 1 }, { "revSize", 0.5f }, { "revMix", 0.18f } } },
+        { "Steel String", "Plucks", {
+            { "A_mode", 5 }, { "A_plkTone", 0.78f }, { "A_plkDecay", 5.0f }, { "A_unison", 2 }, { "A_detune", 3 },
+            { "A_aA", 0.001f }, { "A_aS", 1 }, { "A_aR", 0.6f },
+            { "rvOn", 1 }, { "revSize", 0.6f }, { "revMix", 0.2f } } },
+        { "Koto Garden", "Plucks", {
+            { "A_mode", 5 }, { "A_plkTone", 0.82f }, { "A_plkDecay", 1.6f }, { "A_pitchEnv", 0.6f }, { "A_pitchDecay", 0.08f },
+            { "A_aA", 0.001f }, { "A_aS", 1 }, { "A_aR", 0.5f },
+            { "dlOn", 1 }, { "delayDiv", 8 }, { "delayMix", 0.2f }, { "rvOn", 1 }, { "revMix", 0.25f } } },
+        { "Funky Clav", "Keys", {
+            { "A_mode", 5 }, { "A_plkTone", 0.92f }, { "A_plkDecay", 0.6f }, { "A_ftype", 2 }, { "A_cutoff", 1500 },
+            { "A_reso", 0.4f }, { "A_fenv", 0.3f }, { "A_fD", 0.15f }, { "A_fS", 0 }, { "A_drive", 0.3f },
+            { "A_aA", 0.001f }, { "A_aS", 1 }, { "A_aR", 0.08f } } },
+        { "Baroque Pluck", "Keys", {
+            { "A_mode", 5 }, { "A_plkTone", 1.0f }, { "A_plkDecay", 2.0f }, { "A_unison", 2 }, { "A_detune", 4 },
+            { "A_aA", 0.001f }, { "A_aS", 1 }, { "A_aR", 0.3f },
+            { "B_on", 1 }, { "B_mode", 5 }, { "B_octave", 1 }, { "B_plkTone", 1.0f }, { "B_plkDecay", 1.5f }, { "B_level", 0.4f },
+            { "B_aA", 0.001f }, { "B_aS", 1 }, { "B_aR", 0.3f }, { "rvOn", 1 }, { "revSize", 0.45f }, { "revMix", 0.15f } } },
+        { "Bowed Cello", "Leads", {
+            { "A_mode", 5 }, { "A_octave", -1 }, { "A_plkTone", 0.35f }, { "A_plkDecay", 8.0f }, { "A_plkBow", 0.6f },
+            { "A_aA", 0.25f }, { "A_aS", 1 }, { "A_aR", 0.6f },
+            { "lfo1_rate", 5 }, { "lfo1_fade", 0.5f }, { "m1_src", 1 }, { "m1_dst", 1 }, { "m1_amt", 0.01f },
+            { "rvOn", 1 }, { "revSize", 0.7f }, { "revMix", 0.3f } } },
+        { "Pluck Bass", "Bass", {
+            { "A_mode", 5 }, { "A_octave", -1 }, { "A_plkTone", 0.3f }, { "A_plkDecay", 1.2f }, { "A_sub", 0.4f },
+            { "A_aA", 0.001f }, { "A_aS", 1 }, { "A_aR", 0.15f } } },
+        { "Music Box", "Keys", {
+            { "A_mode", 5 }, { "A_octave", 1 }, { "A_plkTone", 1.0f }, { "A_plkDecay", 4.0f },
+            { "A_aA", 0.001f }, { "A_aS", 1 }, { "A_aR", 1.5f },
+            { "B_on", 1 }, { "B_wave", 0 }, { "B_octave", 2 }, { "B_level", 0.25f }, { "B_aA", 0.001f }, { "B_aD", 1.0f }, { "B_aS", 0 },
+            { "rvOn", 1 }, { "revSize", 0.7f }, { "revMix", 0.3f } } },
+
+        // ---------------------------------------------------------------- DRY & PUNCHY
+        { "Square Lead", "Leads", {
+            { "A_wave", 3 }, { "A_cutoff", 4000 }, { "A_aA", 0.003f }, { "A_aS", 1 }, { "A_aR", 0.15f },
+            { "mono", 1 }, { "glide", 0.03f }, { "dlOn", 1 }, { "delayMix", 0.12f } } },
+        { "Saw Stab", "Keys", {
+            { "A_unison", 3 }, { "A_detune", 10 }, { "A_cutoff", 900 }, { "A_fenv", 0.5f }, { "A_fA", 0.001f }, { "A_fD", 0.2f },
+            { "A_fS", 0.1f }, { "A_aA", 0.001f }, { "A_aD", 0.3f }, { "A_aS", 0.2f }, { "A_aR", 0.15f } } },
+        { "Rubber Bass", "Bass", {
+            { "A_wave", 0.6f }, { "A_octave", -1 }, { "A_pitchEnv", 7 }, { "A_pitchDecay", 0.05f }, { "A_drive", 0.5f },
+            { "A_aA", 0.001f }, { "A_aD", 0.4f }, { "A_aS", 0.6f }, { "A_aR", 0.1f }, { "mono", 1 } } },
+        { "Chip Arp", "Arps", {
+            { "A_wave", 3 }, { "A_cutoff", 12000 }, { "A_aA", 0.001f }, { "A_aD", 0.1f }, { "A_aS", 0.6f }, { "A_aR", 0.05f },
+            { "arpOn", 1 }, { "arpMode", 0 }, { "arpDiv", 13 }, { "arpOct", 2 }, { "arpGate", 0.7f },
+            { "dlOn", 1 }, { "delayMix", 0.15f } } },
+        { "Perc Organ", "Keys", {
+            { "A_mode", 1 }, { "A_wtTable", 6 }, { "A_wtPos", 0.9f }, { "A_cutoff", 12000 }, { "A_velSens", 0 },
+            { "A_aA", 0.002f }, { "A_aD", 0.25f }, { "A_aS", 0.7f }, { "A_aR", 0.06f },
+            { "B_on", 1 }, { "B_wave", 0 }, { "B_semi", 19 }, { "B_level", 0.35f }, { "B_aA", 0.001f }, { "B_aD", 0.2f }, { "B_aS", 0 },
+            { "chOn", 1 }, { "chorusRate", 4.5f }, { "chorusDepth", 0.3f }, { "chorusMix", 0.5f } } },
     };
     presets.insert (presets.end(), more.begin(), more.end());
 
-    static const char* order[] = { "Init", "Pads", "Keys", "Bass", "Leads", "Plucks", "Arps", "Drones", "Textures", "Cinematic" };
+    // Effects are off by default: switch on whatever a preset actually uses.
+    for (auto& pr : presets)
+    {
+        auto has = [&] (const char* id) { for (auto& [k, v] : pr.values) if (std::string (k) == id) return true; return false; };
+        auto uses = [&] (const char* prefix) { for (auto& [k, v] : pr.values) if (std::string (k).rfind (prefix, 0) == 0) return true; return false; };
+        if (uses ("chorus") && ! has ("chOn")) pr.values.push_back ({ "chOn", 1.0f });
+        if (uses ("delay") && ! has ("dlOn")) pr.values.push_back ({ "dlOn", 1.0f });
+        if (uses ("rev") && ! has ("rvOn")) pr.values.push_back ({ "rvOn", 1.0f });
+    }
+
+    static const char* order[] = { "Init", "Pads", "Keys", "Bass", "Leads", "Plucks", "Arps", "Drums", "Drones", "Textures", "Cinematic" };
     auto rank = [] (const char* c)
     {
-        for (int i = 0; i < 10; ++i) if (std::string (order[i]) == c) return i;
+        for (int i = 0; i < 11; ++i) if (std::string (order[i]) == c) return i;
         return 99;
     };
     std::stable_sort (presets.begin(), presets.end(), [&] (const Preset& a, const Preset& b) { return rank (a.category) < rank (b.category); });
@@ -582,6 +680,27 @@ inline const char* presetDescription (const juce::String& name)
         { "Hope Rising", "Four layers that bloom slowly into a bright, hopeful swell." },
         { "Tension Strings", "Trembling strings with a dark comb resonance; the mod wheel bends pitch." },
         { "Epic Impact", "Huge one-shot hit with a long metallic tail." },
+        { "Analog Kick", "Punchy sine kick made with the pitch envelope." },
+        { "Punch Snare", "Tuned body plus a burst of high-passed noise." },
+        { "Closed Hat", "Tight, bright noise tick." },
+        { "Open Hat", "Sizzling open hi-hat." },
+        { "Room Clap", "Fluttering noise clap in a small room." },
+        { "Deep Tom", "Round tom with a falling pitch; play different keys for a tom fill." },
+        { "Laser Zap", "Classic sci-fi zap: a 4-octave pitch dive." },
+        { "808 Boom", "Long, saturated 808-style sub with glide." },
+        { "Nylon Guitar", "Physical-model nylon string: warm, woody pluck." },
+        { "Steel String", "Bright steel-string guitar with a long ring." },
+        { "Koto Garden", "Twangy koto-style pluck with a slight pitch bend." },
+        { "Funky Clav", "Snappy, filtered clavinet-style string for funk riffs." },
+        { "Baroque Pluck", "Harpsichord-like double-strung pluck." },
+        { "Bowed Cello", "Bowed physical-model string with expressive vibrato." },
+        { "Pluck Bass", "Plucked upright-style bass string." },
+        { "Music Box", "Tiny metal comb with a soft sine glow." },
+        { "Square Lead", "Simple, hollow square-wave lead with a touch of glide." },
+        { "Saw Stab", "Short, punchy saw chord stab." },
+        { "Rubber Bass", "Bouncy bass with a little pitch blip on every note." },
+        { "Chip Arp", "8-bit style triplet arpeggio." },
+        { "Perc Organ", "Organ with a percussive click and fast rotary-style chorus." },
     };
     const auto it = d.find (name.toStdString());
     return it != d.end() ? it->second : "";

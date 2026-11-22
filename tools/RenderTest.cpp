@@ -111,6 +111,39 @@ int main (int argc, char** argv)
         if (noteOns < 14 || noteOns > 18) ++failures;
     }
 
+    // Pluck engine tuning: play single notes, check the fundamental
+    {
+        juce::dsp::FFT fft (16);
+        for (int noteNum : { 45, 57, 69, 81 })
+        {
+            proc.setCurrentProgram (0);
+            proc.apvts.getParameter ("A_mode")->setValueNotifyingHost (proc.apvts.getParameter ("A_mode")->convertTo0to1 (5));
+            proc.apvts.getParameter ("A_plkDecay")->setValueNotifyingHost (proc.apvts.getParameter ("A_plkDecay")->convertTo0to1 (8.0f));
+            proc.prepareToPlay (sr, block);
+            std::vector<float> data (2 * 65536, 0.0f);
+            int w = 0;
+            for (int b = 0; b < 140; ++b)
+            {
+                juce::AudioBuffer<float> buf (2, block);
+                juce::MidiBuffer midi;
+                if (b == 0) midi.addEvent (juce::MidiMessage::noteOn (1, noteNum, (juce::uint8) 100), 0);
+                proc.processBlock (buf, midi);
+                if (b >= 12) for (int i = 0; i < block && w < 65536; ++i) data[(size_t) w++] = buf.getSample (0, i) * (0.5f - 0.5f * std::cos (6.2831853f * (float) w / 65536.0f));
+            }
+            fft.performFrequencyOnlyForwardTransform (data.data());
+            const double expect = neb::midiToHz (noteNum);
+            // strongest peak near the expected fundamental (+/- half an octave)
+            int best = 0; float bestMag = 0;
+            for (int k = (int) (expect / 1.41 * 65536 / sr); k < (int) (expect * 1.41 * 65536 / sr); ++k)
+                if (data[(size_t) k] > bestMag) { bestMag = data[(size_t) k]; best = k; }
+            const double got = best * sr / 65536.0;
+            const double cents = 1200.0 * std::log2 (got / expect);
+            std::printf ("pluck tuning: note %d expect %.1f Hz got %.1f Hz (%+.0f cents) %s\n", noteNum, expect, got, cents,
+                         std::abs (cents) < 25 ? "ok" : "OUT OF TUNE!");
+            if (std::abs (cents) >= 25) ++failures;
+        }
+    }
+
     // preview phrase player: no MIDI in, should still play notes
     {
         proc.setCurrentProgram (1);
