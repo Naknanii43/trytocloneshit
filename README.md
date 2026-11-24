@@ -1,5 +1,7 @@
 # Nebulon — Hybrid Atmosphere Synthesizer
 
+> **Also in this repo:** [**Reedstorm**](SaxRack/README.md), a saxophone effects rack (VST3 / AU) with a tuner, an in-key harmonizer, a tracking synth, an octaver, an auto-wah, drive, delay, shimmer reverb and more.
+
 An original, open-source polyphonic synth plugin (VST3 / AU / Standalone) for cinematic pads,
 evolving textures, granular soundscapes, keys, basses, leads and arps. It's in the same
 category as big "hybrid" synth workstations, but all of its code, sound engines, UI and
