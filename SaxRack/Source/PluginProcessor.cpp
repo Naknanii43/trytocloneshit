@@ -59,6 +59,17 @@ rs::RackParams ReedstormProcessor::snapshot() const
     p.dlyPP = b ("dly_pp");
     p.revOn = b ("rev_on"); p.revPre = get ("rev_pre"); p.revSize = get ("rev_size"); p.revDecay = get ("rev_decay");
     p.revDamp = get ("rev_damp"); p.revShimmer = get ("rev_shimmer"); p.revMix = get ("rev_mix");
+    auto& g = p.gen;
+    g.on = b ("gen_on");
+    g.split[0] = get ("gen_split1"); g.split[1] = get ("gen_split2"); g.split[2] = get ("gen_split3");
+    g.sound[0] = i ("gen_snd1"); g.sound[1] = i ("gen_snd2"); g.sound[2] = i ("gen_snd3"); g.sound[3] = i ("gen_snd4");
+    g.morph = get ("gen_morph"); g.pitchMorph = get ("gen_pmorph"); g.bloom = get ("gen_bloom");
+    g.pattern = i ("gen_pattern"); g.rate = i ("gen_rate"); g.length = get ("gen_length");
+    g.density = get ("gen_density"); g.range = i ("gen_range"); g.hold = get ("gen_hold");
+    g.scale = p.harScale;
+    g.keyConcert = ((p.harKey - rs::params::writtenOffset (i ("tuner_inst"))) % 12 + 12) % 12;
+    p.loop.on = b ("loop_on"); p.loop.level = get ("loop_level"); p.loop.feedback = get ("loop_fb");
+    p.loop.reverse = b ("loop_rev"); p.loop.half = b ("loop_half"); p.loop.sync = b ("loop_sync");
     p.outWidth = get ("out_width"); p.outGain = get ("out_gain");
     p.instrument = i ("tuner_inst"); p.tunerRef = get ("tuner_ref");
     return p;
@@ -76,6 +87,16 @@ void ReedstormProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
             if (auto b = pos->getBpm()) bpm = *b;
+
+    // looper footswitch parameters (MIDI-learnable in the host): act on the rising edge
+    static const char* footIds[4] = { "loop_tap", "loop_stop", "loop_undo", "loop_clear" };
+    static const rs::Looper::Command footCmd[4] = { rs::Looper::Tap, rs::Looper::Stop, rs::Looper::Undo, rs::Looper::Clear };
+    for (int k = 0; k < 4; ++k)
+    {
+        const bool down = get (footIds[k]) > 0.5f;
+        if (down && ! footDown[k]) rack.looper.post (footCmd[k]);
+        footDown[k] = down;
+    }
 
     const float* inL = buffer.getReadPointer (0);
     const float* inR = inCh > 1 ? buffer.getReadPointer (1) : nullptr;
@@ -115,7 +136,7 @@ void ReedstormProcessor::loadPreset (int index)
         if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p))
         {
             const auto id = rp->getParameterID();
-            if (id.startsWith ("tuner_") || id == "in_gain" || id == "out_gain") continue;
+            if (id.startsWith ("tuner_") || id.startsWith ("loop_") || id == "in_gain" || id == "out_gain") continue;
             rp->setValueNotifyingHost (rp->getDefaultValue());
         }
 

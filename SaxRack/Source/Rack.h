@@ -8,6 +8,8 @@
 #pragma once
 #include "DSP.h"
 #include "PitchTracker.h"
+#include "Generator.h"
+#include "Looper.h"
 #include <juce_dsp/juce_dsp.h>
 #include <atomic>
 
@@ -26,6 +28,8 @@ struct RackParams
     bool modOn = false; int modType = 0; float modRate = 0.8f, modDepth = 0.5f, modFb = 0.3f, modMix = 0.5f;
     bool dlyOn = false; int dlySync = 6; float dlyTime = 380, dlyFb = 0.35f, dlyTone = 4000, dlyWobble = 0.15f, dlyDuck = 0.3f, dlyMix = 0.3f; bool dlyPP = true;
     bool revOn = false; float revPre = 20, revSize = 0.6f, revDecay = 2.5f, revDamp = 0.4f, revShimmer = 0, revMix = 0.3f;
+    GenParams gen;
+    LoopParams loop;
     float outWidth = 1, outGain = 0;
     int instrument = 2; float tunerRef = 440;
 };
@@ -51,6 +55,8 @@ public:
                   const RackParams& p, double bpm);
 
     RackMeters meters;
+    Generator generator;
+    Looper looper;
 
     /** Harmony interval (scale steps or semitones) -> semitones for the current note. Public for tests. */
     float harmonyShift (int interval, const RackParams& p) const;
@@ -92,6 +98,8 @@ private:
     // reverb (8-line FDN with shimmer)
     Fade revFade; DelayLine revPre; DelayLine revAp[4]; float revApLen[4] {}; DelayLine revLine[8];
     float revLen[8] {}; OnePole revDamp[8]; float revModPhase = 0; PitchShifter shimmer; float shimmerFb = 0; OnePole shimHp;
+    // generator
+    Fade genFade;
     // output
     float limGain = 1.0f;
     juce::LinearSmoothedValue<float> inGainSm, outGainSm, widthSm;

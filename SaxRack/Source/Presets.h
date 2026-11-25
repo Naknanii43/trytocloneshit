@@ -109,6 +109,36 @@ inline const std::vector<Preset>& factoryPresets()
             { "dly_on", 1 }, { "dly_sync", 2 }, { "dly_fb", 0.45f }, { "dly_mix", 0.25f },
             { "rev_on", 1 }, { "rev_size", 0.85f }, { "rev_decay", 4.5f }, { "rev_mix", 0.35f } } },
 
+        { "Zone Morph", "Morph", "Low notes rumble as a drone, the middle is a pad, the top rings like bells, altissimo sings as a choir. Held notes bloom chord swells.",
+          { { "comp_amt", 0.4f }, { "gen_on", 1 }, { "gen_morph", 0.55f }, { "gen_snd1", 3 }, { "gen_snd2", 1 }, { "gen_snd3", 0 }, { "gen_snd4", 4 },
+            { "gen_bloom", 0.5f }, { "gen_pattern", 2 }, { "gen_rate", 1 }, { "gen_length", 5 }, { "gen_density", 0.6f },
+            { "dly_on", 1 }, { "dly_sync", 3 }, { "dly_fb", 0.4f }, { "dly_mix", 0.22f }, { "dly_duck", 0.5f },
+            { "rev_on", 1 }, { "rev_size", 0.85f }, { "rev_decay", 4.5f }, { "rev_mix", 0.35f } } },
+
+        { "Bloom Bells", "Morph", "Your tone stays mostly sax; every held note sets off a glittering bell arpeggio in key.",
+          { { "comp_amt", 0.4f }, { "gen_on", 1 }, { "gen_morph", 0.12f }, { "gen_snd1", 2 }, { "gen_snd2", 0 }, { "gen_snd3", 0 }, { "gen_snd4", 5 },
+            { "gen_bloom", 0.6f }, { "gen_pattern", 0 }, { "gen_rate", 3 }, { "gen_length", 3.5f }, { "gen_density", 0.85f }, { "gen_range", 2 },
+            { "dly_on", 1 }, { "dly_sync", 6 }, { "dly_fb", 0.45f }, { "dly_mix", 0.3f }, { "dly_duck", 0.6f },
+            { "rev_on", 1 }, { "rev_size", 0.8f }, { "rev_decay", 3.5f }, { "rev_mix", 0.32f } } },
+
+        { "Choir Ascension", "Morph", "The higher you play, the more the sax turns into a choir. Long notes bloom swelling choir chords into a shimmer hall.",
+          { { "eq_lowcut", 100 }, { "gen_on", 1 }, { "gen_morph", 0.3f }, { "gen_pmorph", 0.8f }, { "gen_snd1", 1 }, { "gen_snd2", 1 }, { "gen_snd3", 4 }, { "gen_snd4", 4 },
+            { "gen_bloom", 0.55f }, { "gen_pattern", 2 }, { "gen_rate", 0 }, { "gen_length", 8 }, { "gen_density", 0.5f }, { "gen_hold", 250 },
+            { "rev_on", 1 }, { "rev_size", 1.0f }, { "rev_decay", 8.0f }, { "rev_shimmer", 0.4f }, { "rev_mix", 0.5f } } },
+
+        { "Swarm Machine", "Morph", "Aggressive: sax turns into a pulsing synth swarm in the middle register, with random-walk sequences and tape grit.",
+          { { "comp_amt", 0.5f }, { "gen_on", 1 }, { "gen_morph", 0.75f }, { "gen_snd1", 3 }, { "gen_snd2", 5 }, { "gen_snd3", 5 }, { "gen_snd4", 0 },
+            { "gen_bloom", 0.6f }, { "gen_pattern", 1 }, { "gen_rate", 3 }, { "gen_length", 4 }, { "gen_density", 0.8f },
+            { "drv_on", 1 }, { "drv_type", 3 }, { "drv_drive", 0.35f },
+            { "dly_on", 1 }, { "dly_sync", 5 }, { "dly_fb", 0.35f }, { "dly_mix", 0.2f } } },
+
+        { "Generative Ambient", "Morph", "Barely-there morph, long wandering blooms, ducked echoes and shimmer. Play a few notes and let it grow; loop it.",
+          { { "eq_lowcut", 110 }, { "gen_on", 1 }, { "gen_morph", 0.2f }, { "gen_snd1", 3 }, { "gen_snd2", 1 }, { "gen_snd3", 2 }, { "gen_snd4", 0 },
+            { "gen_bloom", 0.8f }, { "gen_pattern", 1 }, { "gen_rate", 1 }, { "gen_length", 10 }, { "gen_density", 0.55f }, { "gen_range", 3 }, { "gen_hold", 300 },
+            { "mod_on", 1 }, { "mod_type", 0 }, { "mod_rate", 0.2f }, { "mod_depth", 0.5f }, { "mod_mix", 0.3f },
+            { "dly_on", 1 }, { "dly_sync", 3 }, { "dly_fb", 0.6f }, { "dly_mix", 0.35f }, { "dly_duck", 0.7f }, { "dly_wobble", 0.3f },
+            { "rev_on", 1 }, { "rev_size", 1.0f }, { "rev_decay", 10.0f }, { "rev_shimmer", 0.45f }, { "rev_mix", 0.55f } } },
+
         { "Rotary Club", "Vintage", "Spinning rotary speaker and tape warmth. Organ-trio soul.",
           { { "comp_amt", 0.35f }, { "drv_on", 1 }, { "drv_type", 3 }, { "drv_drive", 0.3f }, { "drv_tone", 0.45f }, { "drv_level", 3.5f },
             { "mod_on", 1 }, { "mod_type", 3 }, { "mod_rate", 5.8f }, { "mod_depth", 0.75f }, { "mod_mix", 0.85f },

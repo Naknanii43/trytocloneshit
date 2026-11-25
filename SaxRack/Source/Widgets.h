@@ -112,8 +112,9 @@ public:
         addAndMakeVisible (button);
         attachment = std::make_unique<APVTS::ButtonAttachment> (state, paramId, button);
     }
-    void resized() override { button.setBounds (getLocalBounds().withTrimmedTop (15)); }
+    void resized() override { button.setBounds (compact ? getLocalBounds() : getLocalBounds().withTrimmedTop (15)); }
     juce::ToggleButton button;
+    bool compact = false;
 
 private:
     std::unique_ptr<APVTS::ButtonAttachment> attachment;
@@ -161,7 +162,7 @@ public:
     juce::Colour accent() const { return accentColour; }
     bool isOn() const { return power.getToggleState(); }
 
-    void refreshActive()
+    virtual void refreshActive()
     {
         const float a = isOn() ? 1.0f : 0.42f;
         for (auto& k : knobs) k->setAlpha (a);
@@ -177,12 +178,33 @@ public:
         if (std::abs (v - activity) > 0.004f) { activity = v; repaint (0, 0, getWidth(), 34); }
     }
 
-    void resized() override
+    /** Positions the power LED and returns the area below the title bar. */
+    juce::Rectangle<int> contentArea()
     {
         auto r = getLocalBounds().reduced (10, 6);
         auto head = r.removeFromTop (28);
         power.setBounds (head.removeFromRight (26).withSizeKeepingCentre (24, 24));
         r.removeFromTop (6);
+        return r;
+    }
+
+    void layoutKnobGrid (juce::Rectangle<int> r, int columns, int extraCells = 0)
+    {
+        const int total = (int) knobs.size() + extraCells;
+        const int rows = juce::jmax (1, (total + columns - 1) / columns);
+        const int cw = r.getWidth() / columns, ch = r.getHeight() / rows;
+        for (int i = 0; i < total; ++i)
+        {
+            const auto cell = juce::Rectangle<int> (r.getX() + (i % columns) * cw, r.getY() + (i / columns) * ch, cw, ch);
+            if (i < (int) knobs.size()) knobs[(size_t) i]->setBounds (cell.reduced (2));
+            else extraCellBounds.push_back (cell.reduced (4));
+        }
+    }
+    std::vector<juce::Rectangle<int>> extraCellBounds;
+
+    void resized() override
+    {
+        auto r = contentArea();
 
         if (! selectors.empty() || ! switches.empty() || topDisplay != nullptr)
         {
@@ -266,7 +288,7 @@ public:
 
     bool wantsSpareCell = false;
 
-private:
+protected:
     APVTS& state;
     juce::String titleText, subText;
     juce::Colour accentColour;
@@ -673,7 +695,7 @@ public:
                 g.setColour (col::dim);
             }
             g.drawText (nodes[i].label, b, juce::Justification::centred);
-            if (i == 5)   // stereo split marker after EQ
+            if (i == 6)   // stereo split marker
             {
                 g.setColour (col::dim.withAlpha (0.7f));
                 g.setFont (font (9.0f));

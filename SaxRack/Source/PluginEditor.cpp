@@ -165,11 +165,20 @@ ReedstormContent::ReedstormContent (ReedstormProcessor& p) : proc (p)
     rev.knob ("rev_shimmer", "SHIMMER").setTooltip ("Feeds an octave-up copy back into the tail: angelic ambient pads");
     rev.knob ("rev_mix", "MIX");
 
+    auto gp = std::make_unique<GeneratorPanel> (s, proc.generator());
+    genPanel = gp.get();
+    panels.push_back (std::move (gp)); panelRow.push_back (2); panelCols.push_back (8);
+    addAndMakeVisible (*genPanel);
+    auto lp = std::make_unique<LooperPanel> (s, proc.looper());
+    loopPanel = lp.get();
+    panels.push_back (std::move (lp)); panelRow.push_back (2); panelCols.push_back (5);
+    addAndMakeVisible (*loopPanel);
+
     chain = std::make_unique<ChainStrip> (s, std::vector<ChainStrip::Node> {
         { "DYN", "dyn_on", col::dyn }, { "OCT", "oct_on", col::oct }, { "SYNTH", "syn_on", col::syn },
         { "WAH", "wah_on", col::wah }, { "DRIVE", "drv_on", col::drv }, { "EQ", "eq_on", col::eq },
-        { "HARM", "har_on", col::har }, { "MOD", "mod_on", col::mod }, { "DELAY", "dly_on", col::dly },
-        { "VERB", "rev_on", col::rev } });
+        { "GEN", "gen_on", col::gen }, { "HARM", "har_on", col::har }, { "MOD", "mod_on", col::mod },
+        { "DELAY", "dly_on", col::dly }, { "VERB", "rev_on", col::rev }, { "LOOP", "loop_on", col::loop } });
     addAndMakeVisible (*chain);
 
     // brushed-metal noise texture
@@ -308,8 +317,8 @@ void ReedstormContent::resized()
 
     // panels
     const int top = 206, bottom = getHeight() - 10, gap = 8;
-    const int rowH = (bottom - top - gap) / 2;
-    for (int row = 0; row < 2; ++row)
+    const int rowH = (bottom - top - 2 * gap) / 3;
+    for (int row = 0; row < 3; ++row)
     {
         int totalCols = 0;
         for (size_t i = 0; i < panels.size(); ++i) if (panelRow[i] == row) totalCols += panelCols[i];
@@ -348,6 +357,8 @@ void ReedstormContent::timerCallback()
                 m.harmShift1.load(), m.harmShift2.load(),
                 s.getRawParameterValue ("har_lvl1")->load() > 0.01f, s.getRawParameterValue ("har_lvl2")->load() > 0.01f);
 
+    genPanel->zones.update (voiced, rs::midiToHz (concert + 12.0f * std::log2 (s.getRawParameterValue ("tuner_ref")->load() / 440.0f)));
+    loopPanel->update();
     chain->refresh();
     eqCurve->update();
     for (auto& p : panels) p->refreshActive();
@@ -373,7 +384,10 @@ ReedstormEditor::ReedstormEditor (ReedstormProcessor& p) : AudioProcessorEditor 
     setResizeLimits (ReedstormContent::designW / 2, ReedstormContent::designH / 2,
                      ReedstormContent::designW * 2, ReedstormContent::designH * 2);
     getConstrainer()->setFixedAspectRatio ((double) ReedstormContent::designW / ReedstormContent::designH);
-    setSize ((int) (ReedstormContent::designW * 0.9), (int) (ReedstormContent::designH * 0.9));
+    float scale = 0.8f;
+    if (auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+        scale = juce::jlimit (0.5f, 0.9f, (float) (d->userArea.getHeight() - 90) / (float) ReedstormContent::designH);
+    setSize ((int) (ReedstormContent::designW * scale), (int) (ReedstormContent::designH * scale));
 }
 
 void ReedstormEditor::resized()

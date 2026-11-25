@@ -41,6 +41,8 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
     rs::RackMeters& meters() { return rack.meters; }
+    rs::Looper& looper() { return rack.looper; }
+    rs::Generator& generator() { return rack.generator; }
 
 private:
     rs::RackParams snapshot() const;
@@ -49,6 +51,7 @@ private:
     rs::Rack rack;
     std::unordered_map<std::string, std::atomic<float>*> raw;
     int currentPreset = 0;
+    bool footDown[4] {};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReedstormProcessor)
 };

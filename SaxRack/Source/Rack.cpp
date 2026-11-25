@@ -21,7 +21,7 @@ void Rack::prepare (double sampleRate)
     sr = sampleRate;
     tracker.prepare (sr);
 
-    for (auto* f : { &dynFade, &octFade, &synFade, &wahFade, &drvFade, &eqFade, &harFade, &modFade, &dlyFade, &revFade })
+    for (auto* f : { &dynFade, &octFade, &synFade, &wahFade, &drvFade, &eqFade, &harFade, &modFade, &dlyFade, &revFade, &genFade })
         f->prepare (sr);
 
     gateEnv.setup (0.3f, 40.0f, sr);
@@ -59,6 +59,8 @@ void Rack::prepare (double sampleRate)
     shimmer.setWindowMs (90.0f, sr);
     shimHp.setCutoff (400.0f, sr);
 
+    generator.prepare (sr);
+    looper.prepare (sr);
     inGainSm.reset (sr, 0.03);
     outGainSm.reset (sr, 0.03);
     widthSm.reset (sr, 0.05);
@@ -90,6 +92,7 @@ void Rack::reset()
     shimmer.reset(); shimmerFb = 0; shimHp.reset();
     limGain = 1.0f;
     dlySmooth = 0;
+    generator.reset();
 }
 
 void Rack::updateFilters (const RackParams& p)
@@ -405,6 +408,12 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
         }
     }
 
+    // ---- morph generator (mono part): the sax becomes the zone's synth voice -------------
+    genFade.set (p.gen.on);
+    const float concertMidi = trackedMidi - refOffset;
+    if (genFade.active())
+        generator.processMorph (mono, n, voiced, trackedMidi, p.gen, genFade);
+
     // ---- harmonizer: mono -> stereo ----------------------------------------------------
     std::copy (mono, mono + n, L);
     std::copy (mono, mono + n, R);
@@ -445,6 +454,9 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
             R[i] = x + f * (v1 * rr1 + v2 * rr2);
         }
     }
+
+    // ---- generative bloom (stereo), triggered by the zone you play in -------------------
+    generator.processBloom (L, R, n, voiced, concertMidi, p.gen, bpm, p.gen.on);
 
     // ---- modulation: chorus / flanger / phaser / rotary --------------------------------
     modFade.set (p.modOn);
@@ -615,6 +627,9 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
             R[i] += f * wr;
         }
     }
+
+    // ---- looper (records the processed sound) ------------------------------------------
+    looper.process (L, R, n, p.loop, bpm);
 
     // ---- output: width, gain, brickwall-ish safety limiter --------------------------------
     const float limRel = msToCoeff (120.0f, sr);

@@ -13,6 +13,9 @@ inline const juce::StringArray keys          { "C", "Db", "D", "Eb", "E", "F", "
 inline const juce::StringArray scales        { "Major", "Minor", "Dorian", "Mixolydian", "Harm Minor", "Blues", "Maj Pent", "Min Pent" };
 inline const juce::StringArray modTypes      { "Chorus", "Flanger", "Phaser", "Rotary" };
 inline const juce::StringArray delaySyncs    { "Free", "1/2", "1/4", "1/4 dot", "1/4 trip", "1/8", "1/8 dot", "1/8 trip", "1/16" };
+inline const juce::StringArray genSounds     { "Bells", "Pad", "Bowed", "Drone", "Choir", "Swarm" };
+inline const juce::StringArray genPatterns   { "Arp Up", "Random Walk", "Chord Swell", "Cascade" };
+inline const juce::StringArray genRates      { "1/4", "1/8", "1/8 trip", "1/16", "1/16 trip", "1/32" };
 inline const juce::StringArray instruments   { "Concert C", "Soprano Bb", "Alto Eb", "Tenor Bb", "Bari Eb" };
 
 /** Semitones from sounding (concert) pitch to the written note, per instrument. */
@@ -162,6 +165,38 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     pct ("rev_damp", "Damping", 0.4f);
     pct ("rev_shimmer", "Shimmer", 0.0f);
     pct ("rev_mix", "Reverb Mix", 0.3f);
+
+    // Morph generator: frequency zones -> synth sounds
+    bl ("gen_on", "Morph Gen On", false);
+    fl ("gen_split1", "Zone Split 1", skewed (60.0f, 1600.0f, 300.0f), 220.0f, "Hz");
+    fl ("gen_split2", "Zone Split 2", skewed (60.0f, 1600.0f, 300.0f), 370.0f, "Hz");
+    fl ("gen_split3", "Zone Split 3", skewed (60.0f, 1600.0f, 300.0f), 620.0f, "Hz");
+    ch ("gen_snd1", "Zone 1 Sound", genSounds, 3);
+    ch ("gen_snd2", "Zone 2 Sound", genSounds, 1);
+    ch ("gen_snd3", "Zone 3 Sound", genSounds, 0);
+    ch ("gen_snd4", "Zone 4 Sound", genSounds, 4);
+    pct ("gen_morph", "Morph", 0.4f);
+    fl ("gen_pmorph", "Pitch to Morph", { -1.0f, 1.0f }, 0.0f, "", 2);
+    pct ("gen_bloom", "Bloom Level", 0.6f);
+    ch ("gen_pattern", "Bloom Pattern", genPatterns, 0);
+    ch ("gen_rate", "Bloom Rate", genRates, 3);
+    fl ("gen_length", "Bloom Length", skewed (0.5f, 16.0f, 4.0f), 4.0f, "s", 1);
+    pct ("gen_density", "Bloom Density", 0.75f);
+    in ("gen_range", "Bloom Range", 1, 3, 2);
+    fl ("gen_hold", "Trigger Hold", skewed (20.0f, 800.0f, 150.0f), 120.0f, "ms");
+
+    // Looper
+    bl ("loop_on", "Looper On", true);
+    fl ("loop_level", "Loop Level", { 0.0f, 1.5f }, 1.0f, "%");
+    fl ("loop_fb", "Overdub Feedback", { 0.3f, 1.0f }, 1.0f, "%");
+    bl ("loop_rev", "Loop Reverse", false);
+    bl ("loop_half", "Loop Half Speed", false);
+    bl ("loop_sync", "Loop Snap to Beat", false);
+    // momentary "footswitch" parameters so a MIDI controller / DAW can drive the looper
+    bl ("loop_tap", "Loop Rec/Play/Dub", false);
+    bl ("loop_stop", "Loop Stop", false);
+    bl ("loop_undo", "Loop Undo", false);
+    bl ("loop_clear", "Loop Clear", false);
 
     // Output & tuner
     fl ("out_width", "Stereo Width", { 0.0f, 2.0f }, 1.0f, "%");

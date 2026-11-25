@@ -1,12 +1,13 @@
 #pragma once
 #include "PluginProcessor.h"
 #include "Widgets.h"
+#include "GenLoopUI.h"
 
 /** All UI at a fixed design size; the editor scales it to whatever size the window is. */
 class ReedstormContent : public juce::Component, private juce::Timer
 {
 public:
-    static constexpr int designW = 1280, designH = 790;
+    static constexpr int designW = 1280, designH = 1060;
 
     explicit ReedstormContent (ReedstormProcessor&);
     ~ReedstormContent() override;
@@ -46,6 +47,8 @@ private:
     rs::ui::ModulePanel* wahPanel = nullptr;
     rs::ui::ModulePanel* harPanel = nullptr;
     rs::ui::Knob* delayTimeKnob = nullptr;
+    rs::ui::GeneratorPanel* genPanel = nullptr;
+    rs::ui::LooperPanel* loopPanel = nullptr;
 
     juce::Image texture;
     int shownPreset = -1;

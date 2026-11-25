@@ -26,6 +26,9 @@ namespace col
     const juce::Colour mod    { 0xff4da3ff };
     const juce::Colour dly    { 0xffff8fd1 };
     const juce::Colour rev    { 0xff9cc2ff };
+    const juce::Colour gen    { 0xff3ee8ff };
+    const juce::Colour loop   { 0xffc8f03c };
+    const juce::Colour zone[4] { juce::Colour (0xff6a7dff), juce::Colour (0xff3ee8ff), juce::Colour (0xffffc94a), juce::Colour (0xffff5fa2) };
 }
 
 inline juce::Font font (float h, bool bold = false)

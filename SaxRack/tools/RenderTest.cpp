@@ -12,6 +12,7 @@
 #include "../Source/PluginEditor.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <chrono>
+#include <functional>
 
 static void writeWav (const juce::File& file, const juce::AudioBuffer<float>& buf, double sr)
 {
@@ -252,6 +253,122 @@ int main (int argc, char** argv)
         }
     }
 
+    //------------------------------------------------------------------------------ morph generator
+    {
+        const double sr = 48000.0;
+        const float splits[3] = { 220.0f, 370.0f, 620.0f };
+        const bool zonesOk = rs::Generator::zoneOf (150, splits) == 0 && rs::Generator::zoneOf (300, splits) == 1
+                          && rs::Generator::zoneOf (500, splits) == 2 && rs::Generator::zoneOf (900, splits) == 3;
+        std::printf ("Zone mapping: %s\n", zonesOk ? "ok" : "WRONG");
+        if (! zonesOk) fail ("zone mapping");
+
+        // full morph: each synth character must follow the sax pitch
+        for (int snd = 0; snd < 6; ++snd)
+        {
+            ReedstormProcessor proc;
+            auto set = [&] (const char* id, float v) { auto* pr = proc.apvts.getParameter (id); pr->setValueNotifyingHost (pr->convertTo0to1 (v)); };
+            set ("gen_on", 1); set ("gen_morph", 1); set ("gen_bloom", 0); set ("gen_snd2", (float) snd); set ("eq_on", 0);
+            auto in = synthSax ({ { 64, 4.0f, 0.9f } }, sr, 120.0);   // E4 = 329.6 Hz -> zone 2
+            double secs;
+            auto out = run (proc, in, sr, 256, false, secs);
+            // harmonicity at the played pitch: energy on multiples of f0 vs. halfway between them
+            // (formant-heavy timbres fool time-domain trackers, the spectrum does not)
+            auto goertzel = [&] (double hz)
+            {
+                const int a = (int) (0.6 * sr), b = (int) (1.8 * sr);
+                const double w = juce::MathConstants<double>::twoPi * hz / sr;
+                double s1 = 0, s2 = 0;
+                for (int i = a; i < b; ++i)
+                {
+                    const double win = 0.5 - 0.5 * std::cos (juce::MathConstants<double>::twoPi * (i - a) / (b - a));
+                    const double s0 = out.getSample (0, i) * win + 2.0 * std::cos (w) * s1 - s2;
+                    s2 = s1; s1 = s0;
+                }
+                return s1 * s1 + s2 * s2 - 2.0 * std::cos (w) * s1 * s2;
+            };
+            const double f0 = snd == 3 ? 164.81 : 329.63;     // Drone adds a sub-octave
+            double on = 0, off = 0;
+            for (int k = 1; k <= 8; ++k) { on += goertzel (f0 * k); off += goertzel (f0 * (k + 0.5)); }
+            const double ratioDb = 10.0 * std::log10 (on / std::max (off, 1e-12));
+            std::printf ("Morph voice %-6s on E4: harmonics of the played pitch %.1f dB above in-between\n", rs::params::genSounds[snd].toRawUTF8(), ratioDb);
+            if (ratioDb < 15.0) fail ("morph voice " + rs::params::genSounds[snd] + " does not follow the pitch");
+        }
+
+        // bloom: a held note triggers a generative pattern in its zone's sound
+        int zoneHits[4] = {};
+        for (int note : { 50, 60, 69, 79 })   // D3, C4, A4, G5: one per zone
+        {
+            ReedstormProcessor proc;
+            auto set = [&] (const char* id, float v) { auto* pr = proc.apvts.getParameter (id); pr->setValueNotifyingHost (pr->convertTo0to1 (v)); };
+            set ("gen_on", 1); set ("gen_morph", 0); set ("gen_bloom", 1); set ("gen_length", 2);
+            auto in = synthSax ({ { (float) note, 3.0f, 0.9f } }, sr, 120.0);
+            double secs;
+            auto withGen = run (proc, in, sr, 512, false, secs);
+            set ("gen_on", 0);
+            auto dry = run (proc, in, sr, 512, false, secs);
+            double diff = 0;
+            for (int i = 0; i < in.getNumSamples(); ++i) diff += std::pow (withGen.getSample (0, i) - dry.getSample (0, i), 2.0);
+            const int triggers = proc.generator().meters.triggers.load();
+            const int z = proc.generator().meters.bloomZone.load();
+            if (triggers > 0 && diff > 1.0) zoneHits[z]++;
+            std::printf ("Bloom on %s: %d trigger(s), zone %d, added energy %.1f\n", rs::ui::noteName (note).toRawUTF8(), triggers, z + 1, diff);
+        }
+        if (zoneHits[0] != 1 || zoneHits[1] != 1 || zoneHits[2] != 1 || zoneHits[3] != 1) fail ("bloom per zone");
+    }
+
+    //------------------------------------------------------------------------------ looper
+    {
+        const double sr = 48000.0;
+        rs::Looper lp;
+        lp.prepare (sr);
+        rs::LoopParams prm;
+        const int block = 128;
+        float L[block], R[block];
+        auto feed = [&] (int samples, std::function<float (int)> src, std::vector<float>* capture = nullptr)
+        {
+            static int t = 0;
+            for (int done = 0; done < samples; done += block)
+            {
+                for (int i = 0; i < block; ++i) { L[i] = R[i] = src (t + i); }
+                lp.process (L, R, block, prm, 120.0);
+                if (capture) capture->insert (capture->end(), L, L + block);
+                t += block;
+            }
+        };
+        auto sine = [&] (float hz) { return [hz, sr] (int t) { return 0.3f * std::sin (rs::twoPi * hz * (float) t / (float) sr); }; };
+        auto silence = [] (int) { return 0.0f; };
+        const int loopLen = 48000;
+
+        lp.post (rs::Looper::Tap);  feed (loopLen, sine (440));          // record 1 s of A
+        lp.post (rs::Looper::Tap);  std::vector<float> pass1; feed (loopLen * 2, silence, &pass1);
+        const int len = lp.uiLength.load();
+        double err = 0, energy = 0;
+        for (int i = 4800; i < loopLen; ++i) { err += std::abs (pass1[(size_t) i] - pass1[(size_t) (i + len)]); energy += std::abs (pass1[(size_t) i]); }
+        std::printf ("Looper: length %d samples, repeats exactly: %s, level %.3f\n", len, err < 1e-3 ? "yes" : "NO", energy / loopLen);
+        if (len != loopLen || err > 1e-3 || energy / loopLen < 0.08) fail ("looper record/play");
+
+        lp.post (rs::Looper::Tap);  feed (loopLen, sine (660));          // overdub E
+        lp.post (rs::Looper::Tap);  feed (loopLen * 2, silence);          // play, snapshot completes
+        std::vector<float> dubbed; feed (loopLen, silence, &dubbed);
+        const bool undoReady = lp.undoReady.load();
+        lp.post (rs::Looper::Undo); std::vector<float> undone; feed (loopLen, silence, &undone);
+        lp.post (rs::Looper::Undo); std::vector<float> redone; feed (loopLen, silence, &redone);
+        double eDub = 0, eUndo = 0, dRedo = 0, dUndo = 0;
+        for (int i = 0; i < loopLen; ++i)
+        {
+            eDub += dubbed[(size_t) i] * dubbed[(size_t) i];
+            eUndo += undone[(size_t) i] * undone[(size_t) i];
+            dRedo += std::abs (redone[(size_t) i] - dubbed[(size_t) i]);
+            if (i >= 4800) dUndo += std::abs (undone[(size_t) i] - pass1[(size_t) i]);
+        }
+        std::printf ("Looper overdub energy %.1f -> undo %.1f (matches first take: %s) -> redo matches overdub: %s\n",
+                     eDub, eUndo, dUndo < 1.0 ? "yes" : "NO", dRedo < 1.0 ? "yes" : "NO");
+        if (! undoReady || eDub < eUndo * 1.5 || dUndo > 1.0 || dRedo > 1.0) fail ("looper overdub/undo/redo");
+
+        lp.post (rs::Looper::Clear); feed (block, silence);
+        if (lp.uiState.load() != rs::Looper::Empty || lp.uiLength.load() != 0) fail ("looper clear");
+    }
+
     //------------------------------------------------------------------------------ presets
     std::printf ("\nRendering every factory preset:\n");
     const auto& presets = rs::factoryPresets();
@@ -302,7 +419,12 @@ int main (int argc, char** argv)
     //------------------------------------------------------------------------------ editor
     {
         ReedstormProcessor proc;
-        proc.loadPreset (11);   // Horn Section: lights up the harmony trace
+        int showcase = 0;
+        for (int i = 0; i < proc.getNumPrograms(); ++i) if (proc.getProgramName (i) == "Zone Morph") showcase = i;
+        proc.loadPreset (showcase);
+        auto* harm = proc.apvts.getParameter ("har_on");    // also light up the harmony lines in the trace
+        harm->setValueNotifyingHost (1.0f);
+        proc.apvts.getParameter ("har_lvl2")->setValueNotifyingHost (proc.apvts.getParameter ("har_lvl2")->convertTo0to1 (0.4f));
         const double sr = 48000.0;
         proc.setPlayConfigDetails (2, 2, sr, 512);
         proc.prepareToPlay (sr, 512);
@@ -316,6 +438,8 @@ int main (int argc, char** argv)
             juce::AudioBuffer<float> buf (2, 512);
             buf.copyFrom (0, 0, in, 0, pos, 512);
             buf.copyFrom (1, 0, in, 0, pos, 512);
+            if (pos == 512 * 4) proc.looper().post (rs::Looper::Tap);          // record...
+            if (pos == 512 * 330) proc.looper().post (rs::Looper::Tap);        // ...and loop ~3.5 s
             proc.processBlock (buf, midi);
             if ((pos / 512) % 3 == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (33);
         }

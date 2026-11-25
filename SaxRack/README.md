@@ -1,8 +1,10 @@
 # Reedstorm: Saxophone Effects Rack (VST3 / AU / Standalone)
 
-A 10-module effects rack built specifically for **saxophone**. It listens to your horn with a
+A 12-module effects rack built specifically for **saxophone**. It listens to your horn with a
 pitch tracker, so it can show a **tuner** in your instrument's written key, add **in-key
-harmonies**, drive a **synth voice that follows your playing**, and keep the octaver locked to your note.
+harmonies**, drive a **synth voice that follows your playing**, keep the octaver locked to your note, and
+**morph your sax into a different synth depending on which frequency you play**, with held notes
+blooming into **generative patterns**. A **looper** at the end of the chain lets you build it all up live.
 
 ![Reedstorm](docs/ui.png)
 
@@ -18,15 +20,22 @@ Start with the **[▶ dry phrase](demos/00_Dry_Sax.mp3)**.
 | [Blues Shouter Growl](demos/08_Blues_Shouter_Growl.mp3) | [Sub Bass Sax](demos/09_Sub_Bass_Sax.mp3) | [Synth Horn Lead](demos/10_Synth_Horn_Lead.mp3) |
 | [Square Wave Sax](demos/11_Square_Wave_Sax.mp3) | [Horn Section](demos/12_Horn_Section.mp3) | [Octave Unison](demos/13_Octave_Unison.mp3) |
 | [Ethio Minor Section](demos/14_Ethio_Minor_Section.mp3) | [Ambient Shimmer](demos/15_Ambient_Shimmer.mp3) | [Dub Echo Chamber](demos/16_Dub_Echo_Chamber.mp3) |
-| [Jet Flanger Space](demos/17_Jet_Flanger_Space.mp3) | [Rotary Club](demos/18_Rotary_Club.mp3) | [Lo-Fi Tape Memory](demos/19_Lo-Fi_Tape_Memory.mp3) |
+| [Jet Flanger Space](demos/17_Jet_Flanger_Space.mp3) | [Rotary Club](demos/23_Rotary_Club.mp3) | [Lo-Fi Tape Memory](demos/24_Lo-Fi_Tape_Memory.mp3) |
+
+**Morph Gen** (the sax changes into a different synth in each frequency zone, and held notes bloom):
+[▶ Zone Morph](demos/18_Zone_Morph.mp3) ·
+[▶ Bloom Bells](demos/19_Bloom_Bells.mp3) ·
+[▶ Choir Ascension](demos/20_Choir_Ascension.mp3) ·
+[▶ Swarm Machine](demos/21_Swarm_Machine.mp3) ·
+[▶ Generative Ambient](demos/22_Generative_Ambient.mp3)
 
 (The input is a synthesized saxophone, so expect the effects to sound better on a real horn.)
 
 ## The rack
 
 ```
-IN ─ DYNAMICS ─ OCTAVER ─ SYNTH ─ ENV FILTER ─ DRIVE ─ EQ ─┬─ HARMONY ─ MODULATION ─ DELAY ─ REVERB ─ OUT
-     └──────────── mono core (one voice) ───────────────┘  └──────────────── stereo ─────────────────┘
+IN ─ DYNAMICS ─ OCTAVER ─ SYNTH ─ ENV FILTER ─ DRIVE ─ EQ ─ MORPH GEN ─┬─ HARMONY ─ MODULATION ─ DELAY ─ REVERB ─ LOOPER ─ OUT
+     └──────────────── mono core (one voice) ─────────────────────┘  └───────────────────── stereo ──────────────────────┘
 ```
 
 Click any module in the chain strip (or its power LED) to switch it on or off. Modules crossfade
@@ -45,6 +54,19 @@ in and out, so switching never clicks.
 | **Delay** | Tape echo, free or synced to the host tempo (1/2 to 1/16, dotted, triplet). Ping-pong, wobble (wow and flutter), a filtered and saturated feedback loop, and **ducking** so echoes stay out of the way while you play |
 | **Reverb** | 8-line feedback-delay-network reverb with pre-delay, size, decay, damping and **Shimmer** (an octave-up feedback path for ambient pads) |
 
+| **Morph Gen** | See below. Your frequency picks the synth, the sax morphs into it, and held notes bloom generative patterns |
+| **Looper** | Records the whole processed rack. See below |
+
+### Morph Gen: a different synth for each frequency
+The **zone map** splits your range into **4 frequency zones**. Drag the three split lines to set where each zone starts, from 60 Hz to 1.6 kHz, with the Hz and note name shown. Each zone has its own synth sound: **Bells** (FM), **Pad** (detuned saws), **Bowed** (physical-model string), **Drone** (sub-heavy sines), **Choir** (formant "aah") or **Swarm** (pulsing detuned saws).
+
+- **Morph**: a synth voice follows your pitch and breath. **MORPH** blends sax (0%) to synth (100%). When you cross a split, the voice crossfades into the next zone's sound, so the timbre changes as you move around the horn. **PITCH>MORPH** makes higher (turn right) or lower (turn left) notes more synthetic, so a scale can sweep from pure sax to pure synth.
+- **Bloom**: hold a note steady for **HOLD** ms and the zone it falls in triggers a **generative pattern** in that zone's sound. The pattern is built in the Harmony module's key and scale around the note you played. Patterns: **Arp Up**, **Random Walk**, **Chord Swell** and **Cascade**. Rate is synced to the host tempo (1/4 to 1/32 triplet), with **LENGTH**, **DENSITY** (how many steps play) and **RANGE** (1 to 3 octaves). **BLOOM!** fires one by hand. The zone flashes when a bloom triggers.
+
+### Looper
+One footswitch button: **REC**, then **PLAY** (the loop closes), then **DUB** (overdub), then **PLAY**, and so on. You also get **STOP**, **UNDO** (removes the last overdub, press again to redo), **CLEAR**, **REVERSE**, **HALF** speed, **SNAP** (rounds the loop length to whole beats of the host tempo) and **FEEDBACK** (how much the old layers fade on each overdub). Loops can be up to 40 s, and there's a live waveform with a playhead.
+For hands-free use, the host parameters *Loop Rec/Play/Dub*, *Loop Stop*, *Loop Undo* and *Loop Clear* can be MIDI-learned to a foot controller.
+
 **Header:** factory preset browser, **tuner**, **pitch trace** (a scrolling piano roll of what you play; with Harmony on it also draws the harmony voices in green), input gain, output gain, stereo width, and IN / L / R meters. A safety limiter on the output stops overs.
 
 ### Tuner and transposition
@@ -56,17 +78,18 @@ Pick your horn in **Instrument** (Concert C, Soprano B♭, Alto E♭, Tenor B♭
 - Use the Delay's *Duck* control: a lot of echo between phrases while staying clean while you play.
 - Most knobs show their value while hovered. Double-click any knob to reset it.
 
-## Factory presets (19)
+## Factory presets (24)
 **Basics:** Init, Studio Polish, Smoky Jazz Club, Bright Pop Lead ·
 **Funk:** Funk Envelope Wah, Robot Talk Wah ·
 **Heavy:** Octave Fuzz Monster, Blues Shouter Growl, Sub Bass Sax ·
 **Synth:** Synth Horn Lead, Square Wave Sax ·
 **Harmony:** Horn Section, Octave Unison, Ethio Minor Section ·
 **Space:** Ambient Shimmer, Dub Echo Chamber, Jet Flanger Space ·
+**Morph:** Zone Morph, Bloom Bells, Choir Ascension, Swarm Machine, Generative Ambient ·
 **Vintage:** Rotary Club, Lo-Fi Tape Memory
 
 Presets are level-matched and also appear in your DAW's program list. Your input gain, output
-gain and tuner settings are kept when you switch presets.
+gain, tuner settings and your loop are kept when you switch presets.
 
 ## Getting the plugin
 GitHub Actions builds Windows, macOS and Linux binaries on every push. Open the **Actions** tab, choose the latest
@@ -94,6 +117,7 @@ The output goes to `build/Reedstorm_artefacts/Release/`. Pass `-DJUCE_DIR=/path/
 Add `-DREEDSTORM_BUILD_TESTS=ON` to also build `ReedstormRenderTest <dir> [--demos]`, which:
 
 - checks the pitch tracker over the full sax range (bari low A to soprano altissimo) at 44.1, 48 and 96 kHz
+- checks that every Morph Gen sound follows the played pitch, that a held note blooms in the right zone, and that the looper repeats exactly and overdub/undo/redo restore the right layers
 - checks that the pitch shifter and harmony voices are in tune (within a few cents), the octaver divides correctly, and the diatonic and transposed-key logic gives the right intervals
 - renders every preset (NaN, silence, clipping and CPU checks; uses mono and stereo inputs) and snapshots the UI
 - with `--demos`, writes the WAVs behind `demos/`
@@ -101,6 +125,10 @@ Add `-DREEDSTORM_BUILD_TESTS=ON` to also build `ReedstormRenderTest <dir> [--dem
 ## Source layout
 ```
 Source/Rack.*            the signal chain (all DSP modules)
+Source/Generator.h       Morph Gen: frequency zones, morph voice, generative bloom
+Source/Voice.h           the six Morph Gen synth sounds
+Source/Looper.h          looper (allocation-free, spike-free incremental undo)
+Source/GenLoopUI.h       zone map, Morph Gen and Looper panels
 Source/PitchTracker.h    YIN pitch tracker (decimated, cheap enough for the audio thread)
 Source/DSP.h             SVF, biquad, delay line, pitch-synchronous pitch shifter, helpers
 Source/Params.h          parameters, scales, instrument transpositions
