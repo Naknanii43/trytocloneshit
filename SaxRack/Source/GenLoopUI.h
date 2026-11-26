@@ -635,6 +635,10 @@ public:
         knob ("grm_follow", "FOLLOW").setTooltip ("How often creatures take their pitch from the note you are playing");
         knob ("grm_swarm", "SWARM").setTooltip ("How many creatures each sound wakes up");
         knob ("grm_level", "LEVEL");
+        palette = std::make_unique<Combo> (s, "grm_palette", "Palette", col::grm);
+        palette->box.setTooltip ("Which creatures live here. Cartoon: boing, whistle, bubbles, quack. Sci-Fi: pew, robot, screech, static. "
+                                 "Voice Mangler: kazoo, stutter, reverse ghost, quack. Scrapyard: clank, grinder, static, stutter.");
+        addAndMakeVisible (*palette);
         spawn.setButtonText ("SPAWN!");
         spawn.onClick = [this] { gremlins.manualSpawn.store (true); };
         addAndMakeVisible (spawn);
@@ -650,16 +654,23 @@ public:
         view.setBounds (r);
         extraCellBounds.clear();
         layoutKnobGrid (left, 4, 1);
-        if (! extraCellBounds.empty()) spawn.setBounds (extraCellBounds[0].withSizeKeepingCentre (juce::jmin (90, extraCellBounds[0].getWidth()), 32));
+        if (! extraCellBounds.empty())
+        {
+            auto cell = extraCellBounds[0].expanded (2);
+            palette->setBounds (cell.removeFromTop (cell.getHeight() / 2).withSizeKeepingCentre (cell.getWidth(), 40));
+            spawn.setBounds (cell.withSizeKeepingCentre (juce::jmin (90, cell.getWidth()), 30));
+        }
     }
 
     void refreshActive() override
     {
         ModulePanel::refreshActive();
         spawn.setAlpha (isOn() ? 1.0f : 0.42f);
+        if (palette) palette->setAlpha (isOn() ? 1.0f : 0.42f);
     }
 
 private:
+    std::unique_ptr<Combo> palette;
     CritterView view;
     Gremlins& gremlins;
     juce::TextButton spawn;

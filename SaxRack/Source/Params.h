@@ -16,6 +16,7 @@ inline const juce::StringArray delaySyncs    { "Free", "1/2", "1/4", "1/4 dot", 
 inline const juce::StringArray genSounds     { "Bells", "Pad", "Bowed", "Drone", "Choir", "Swarm" };
 inline const juce::StringArray genPatterns   { "Arp Up", "Random Walk", "Chord Swell", "Cascade" };
 inline const juce::StringArray genRates      { "1/4", "1/8", "1/8 trip", "1/16", "1/16 trip", "1/32" };
+inline const juce::StringArray grmPalettes   { "All Creatures", "Cartoon", "Sci-Fi", "Voice Mangler", "Scrapyard" };
 inline const juce::StringArray instruments   { "Concert C", "Soprano Bb", "Alto Eb", "Tenor Bb", "Bari Eb" };
 
 /** Semitones from sounding (concert) pitch to the written note, per instrument. */
@@ -194,6 +195,7 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     pct ("grm_follow", "Gremlin Pitch Follow", 0.5f);
     pct ("grm_swarm", "Gremlin Swarm", 0.3f);
     pct ("grm_level", "Gremlin Level", 0.6f);
+    ch ("grm_palette", "Gremlin Palette", grmPalettes, 0);
 
     // Loop station (4 tracks)
     bl ("loop_on", "Loop Station On", true);

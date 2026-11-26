@@ -80,6 +80,7 @@ The **zone map** splits your range into **4 frequency zones**. Drag the three sp
 An onset detector listens to the raw input for **any** sound: notes, breaths, claps, talking or key clicks. Each sound has a **CHANCE** of waking the gremlins, and **SWARM** sets how many come out.
 - **Silly:** Boing (cartoon spring), Pew Pew (lasers), Quack, Bubbles, Beep-Boop (a bit-crushed robot), Wheee (slide whistle), Bzzzt (your last phrase through a kazoo).
 - **Harsh / industrial:** Clank (struck metal bar), Grrrzzt (comb-filtered grinder through a wavefolder), St-st-stutter (a slice of what you just played, retriggered and crushed), Esrever (your sound backwards and ring-modulated), Skreeee (runaway feedback), Ksshhh (static).
+- **PALETTE** picks the cast. **All Creatures**; **Cartoon** (boing, whistle, bubbles, quack); **Sci-Fi** (pew, robot, screech, static); **Voice Mangler** (kazoo, stutter, reverse ghost, quack); **Scrapyard** (clank, grinder, static, stutter).
 - **SILLY<>HARSH** sets the mix between the two families. **DIRT** sends the whole gremlin bus through a clipper, then a bit crusher, then a sample-rate reducer. **FOLLOW** makes the creatures use the pitch you're playing. **SENS** sets how easily they wake up. **SPAWN!** summons one by hand.
 - The terrarium on the right shows each creature as it appears: round smiling ones for silly, spiky angry ones for harsh.
 
@@ -114,7 +115,7 @@ Pick your horn in **Instrument** (Concert C, Soprano B♭, Alto E♭, Tenor B♭
 **Gremlins:** Gremlin Party, Industrial Factory, Cartoon Sax, Broken Robot ·
 **Vintage:** Rotary Club, Lo-Fi Tape Memory
 
-Presets are level-matched and also appear in your DAW's program list. Your input gain, output
+Each preset is built around one main effect, so presets sound clearly different both within a bank and across banks. This is checked with a similarity measure on the demo renders that compares timbre over time, harmony (pitch classes), modulation and roughness, stereo image and reverb tail. Presets are level-matched and also appear in your DAW's program list. Your input gain, output
 gain, tuner settings and your loops are kept when you switch presets.
 
 ## Getting the plugin

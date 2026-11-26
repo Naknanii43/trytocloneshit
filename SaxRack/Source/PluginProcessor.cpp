@@ -74,7 +74,7 @@ rs::RackParams ReedstormProcessor::snapshot() const
     g.keyConcert = ((p.harKey - rs::params::writtenOffset (i ("tuner_inst"))) % 12 + 12) % 12;
     auto& gr = p.grm;
     gr.on = b ("grm_on"); gr.sens = get ("grm_sens"); gr.chance = get ("grm_chance"); gr.harsh = get ("grm_harsh");
-    gr.dirt = get ("grm_dirt"); gr.follow = get ("grm_follow"); gr.swarm = get ("grm_swarm"); gr.level = get ("grm_level");
+    gr.dirt = get ("grm_dirt"); gr.follow = get ("grm_follow"); gr.swarm = get ("grm_swarm"); gr.level = get ("grm_level"); gr.palette = i ("grm_palette");
     p.loop.on = b ("loop_on"); p.loop.lock = b ("loop_lock"); p.loop.snap = b ("loop_snap"); p.loop.feedback = get ("loop_fb");
     for (int t = 0; t < 4; ++t)
     {

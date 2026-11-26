@@ -16,6 +16,7 @@ struct GremlinParams
 {
     bool on = false;
     float sens = 0.6f, chance = 0.7f, harsh = 0.3f, dirt = 0.2f, follow = 0.5f, swarm = 0.3f, level = 0.6f;
+    int palette = 0;
 };
 
 class Gremlins
@@ -103,7 +104,7 @@ public:
                 if (++holdCount >= hold) { holdCount = 0; holdL = l; holdR = r; }
                 l = holdL; r = holdR;
             }
-            const float g = fade.next() * p.level * 0.5f;
+            const float g = fade.next() * p.level * 1.1f;
             L[i] += l * g;
             R[i] += r * g;
         }
@@ -124,10 +125,37 @@ public:
 private:
     float dice() { return 0.5f + 0.5f * rng.next(); }
 
-    int pickType (float harsh)
+    /** Palettes give each preset its own cast of creatures. */
+    static bool inPalette (int type, int palette)
     {
-        const bool h = dice() < harsh;
-        return h ? numSilly + (int) (dice() * 5.999f) : (int) (dice() * 6.999f);
+        switch (palette)
+        {
+            case 1: return type == Boing || type == Whistle || type == Bubbles || type == Quack;        // Cartoon
+            case 2: return type == Pew || type == Robot || type == Screech || type == Static;           // Sci-Fi
+            case 3: return type == Kazoo || type == Stutter || type == Ghost || type == Quack;          // Voice Mangler
+            case 4: return type == Clank || type == Grinder || type == Static || type == Stutter;       // Scrapyard
+            default: return true;                                                                        // All
+        }
+    }
+
+    int pickType (float harsh, int palette)
+    {
+        float w[numTypes], total = 0;
+        for (int t = 0; t < numTypes; ++t)
+        {
+            w[t] = inPalette (t, palette) ? (t < numSilly ? 1.0f - harsh : harsh) / (t < numSilly ? 7.0f : 6.0f) : 0.0f;
+            total += w[t];
+        }
+        if (total <= 1.0e-6f)      // palette has nothing in the chosen family: use the whole palette
+            for (int t = 0; t < numTypes; ++t) { w[t] = inPalette (t, palette) ? 1.0f : 0.0f; total += w[t]; }
+        float r = dice() * total;
+        for (int t = 0; t < numTypes; ++t)
+        {
+            r -= w[t];
+            if (r <= 0.0f && w[t] > 0.0f) return t;
+        }
+        for (int t = numTypes - 1; t >= 0; --t) if (w[t] > 0.0f) return t;
+        return 0;
     }
 
     void spawnSwarm (bool voiced, float hz, const GremlinParams& p)
@@ -138,7 +166,7 @@ private:
             float f = 0.0f;
             const bool follow = voiced && dice() < p.follow;
             if (follow) f = hz;
-            const int t = pickType (p.harsh);
+            const int t = pickType (p.harsh, p.palette);
             // creatures that chew on your sound wait until they have heard enough of it
             const double capture = t == Stutter ? 0.2 : (t == Kazoo || t == Ghost) ? 0.42 : 0.0;
             if (k == 0 && capture <= 0.0) spawn (t, f, p);
