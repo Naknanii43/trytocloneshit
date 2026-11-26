@@ -4,6 +4,7 @@
 #include "Presets.h"
 #include <unordered_map>
 #include <string>
+#include <array>
 #include <juce_audio_processors/juce_audio_processors.h>
 
 class ReedstormProcessor : public juce::AudioProcessor
@@ -40,8 +41,10 @@ public:
     int getCurrentPresetIndex() const { return currentPreset; }
 
     juce::AudioProcessorValueTreeState apvts;
+    int uiPage = 0;    // editor tab, remembered while the plugin is loaded
     rs::RackMeters& meters() { return rack.meters; }
-    rs::Looper& looper() { return rack.looper; }
+    rs::LoopStation& looper() { return rack.looper; }
+    rs::Gremlins& gremlins() { return rack.gremlins; }
     rs::Generator& generator() { return rack.generator; }
 
 private:
@@ -51,7 +54,9 @@ private:
     rs::Rack rack;
     std::unordered_map<std::string, std::atomic<float>*> raw;
     int currentPreset = 0;
-    bool footDown[4] {};
+    bool footDown[4][4] {};
+    bool stopAllDown = false, clearAllDown = false;
+    std::array<std::array<std::string, 9>, 4> loopIds;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReedstormProcessor)
 };

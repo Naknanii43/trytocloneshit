@@ -10,6 +10,10 @@ ReedstormProcessor::ReedstormProcessor()
     for (auto* p : getParameters())
         if (auto* wp = dynamic_cast<juce::RangedAudioParameter*> (p))
             raw[wp->getParameterID().toStdString()] = apvts.getRawParameterValue (wp->getParameterID());
+    static const char* suffix[9] = { "level", "pan", "mute", "rev", "half", "tap", "stop", "undo", "clear" };
+    for (int t = 0; t < 4; ++t)
+        for (int k = 0; k < 9; ++k)
+            loopIds[(size_t) t][(size_t) k] = "loop" + std::to_string (t + 1) + "_" + suffix[k];
 }
 
 bool ReedstormProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -68,8 +72,17 @@ rs::RackParams ReedstormProcessor::snapshot() const
     g.density = get ("gen_density"); g.range = i ("gen_range"); g.hold = get ("gen_hold");
     g.scale = p.harScale;
     g.keyConcert = ((p.harKey - rs::params::writtenOffset (i ("tuner_inst"))) % 12 + 12) % 12;
-    p.loop.on = b ("loop_on"); p.loop.level = get ("loop_level"); p.loop.feedback = get ("loop_fb");
-    p.loop.reverse = b ("loop_rev"); p.loop.half = b ("loop_half"); p.loop.sync = b ("loop_sync");
+    auto& gr = p.grm;
+    gr.on = b ("grm_on"); gr.sens = get ("grm_sens"); gr.chance = get ("grm_chance"); gr.harsh = get ("grm_harsh");
+    gr.dirt = get ("grm_dirt"); gr.follow = get ("grm_follow"); gr.swarm = get ("grm_swarm"); gr.level = get ("grm_level");
+    p.loop.on = b ("loop_on"); p.loop.lock = b ("loop_lock"); p.loop.snap = b ("loop_snap"); p.loop.feedback = get ("loop_fb");
+    for (int t = 0; t < 4; ++t)
+    {
+        const auto& ids = loopIds[(size_t) t];
+        auto& tp = p.loop.track[t];
+        tp.level = get (ids[0].c_str()); tp.pan = get (ids[1].c_str());
+        tp.mute = get (ids[2].c_str()) > 0.5f; tp.reverse = get (ids[3].c_str()) > 0.5f; tp.half = get (ids[4].c_str()) > 0.5f;
+    }
     p.outWidth = get ("out_width"); p.outGain = get ("out_gain");
     p.instrument = i ("tuner_inst"); p.tunerRef = get ("tuner_ref");
     return p;
@@ -88,15 +101,19 @@ void ReedstormProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         if (auto pos = ph->getPosition())
             if (auto b = pos->getBpm()) bpm = *b;
 
-    // looper footswitch parameters (MIDI-learnable in the host): act on the rising edge
-    static const char* footIds[4] = { "loop_tap", "loop_stop", "loop_undo", "loop_clear" };
-    static const rs::Looper::Command footCmd[4] = { rs::Looper::Tap, rs::Looper::Stop, rs::Looper::Undo, rs::Looper::Clear };
-    for (int k = 0; k < 4; ++k)
-    {
-        const bool down = get (footIds[k]) > 0.5f;
-        if (down && ! footDown[k]) rack.looper.post (footCmd[k]);
-        footDown[k] = down;
-    }
+    // loop-station footswitch parameters (MIDI-learnable in the host): act on the rising edge
+    static const rs::LoopTrack::Command cmds[4] = { rs::LoopTrack::Tap, rs::LoopTrack::Stop, rs::LoopTrack::Undo, rs::LoopTrack::Clear };
+    for (int t = 0; t < 4; ++t)
+        for (int k = 0; k < 4; ++k)
+        {
+            const bool down = get (loopIds[(size_t) t][(size_t) (5 + k)].c_str()) > 0.5f;
+            if (down && ! footDown[t][k]) rack.looper.post (t, cmds[k]);
+            footDown[t][k] = down;
+        }
+    const bool sa = get ("loop_stopall") > 0.5f, ca = get ("loop_clearall") > 0.5f;
+    if (sa && ! stopAllDown) rack.looper.stopAll();
+    if (ca && ! clearAllDown) rack.looper.clearAll();
+    stopAllDown = sa; clearAllDown = ca;
 
     const float* inL = buffer.getReadPointer (0);
     const float* inR = inCh > 1 ? buffer.getReadPointer (1) : nullptr;
@@ -136,7 +153,7 @@ void ReedstormProcessor::loadPreset (int index)
         if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p))
         {
             const auto id = rp->getParameterID();
-            if (id.startsWith ("tuner_") || id.startsWith ("loop_") || id == "in_gain" || id == "out_gain") continue;
+            if (id.startsWith ("tuner_") || id.startsWith ("loop") || id == "in_gain" || id == "out_gain") continue;
             rp->setValueNotifyingHost (rp->getDefaultValue());
         }
 

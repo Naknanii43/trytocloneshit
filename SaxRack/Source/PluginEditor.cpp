@@ -165,19 +165,33 @@ ReedstormContent::ReedstormContent (ReedstormProcessor& p) : proc (p)
     rev.knob ("rev_shimmer", "SHIMMER").setTooltip ("Feeds an octave-up copy back into the tail: angelic ambient pads");
     rev.knob ("rev_mix", "MIX");
 
+    for (size_t i = 0; i < panels.size(); ++i) panelPage.push_back (0);
     auto gp = std::make_unique<GeneratorPanel> (s, proc.generator());
     genPanel = gp.get();
-    panels.push_back (std::move (gp)); panelRow.push_back (2); panelCols.push_back (8);
+    panels.push_back (std::move (gp)); panelRow.push_back (0); panelCols.push_back (1); panelPage.push_back (1);
     addAndMakeVisible (*genPanel);
-    auto lp = std::make_unique<LooperPanel> (s, proc.looper());
+    auto gr = std::make_unique<GremlinsPanel> (s, proc.gremlins());
+    grmPanel = gr.get();
+    panels.push_back (std::move (gr)); panelRow.push_back (1); panelCols.push_back (1); panelPage.push_back (1);
+    addAndMakeVisible (*grmPanel);
+    auto lp = std::make_unique<LoopStationPanel> (s, proc.looper());
     loopPanel = lp.get();
-    panels.push_back (std::move (lp)); panelRow.push_back (2); panelCols.push_back (5);
+    panels.push_back (std::move (lp)); panelRow.push_back (9); panelCols.push_back (1); panelPage.push_back (2);
     addAndMakeVisible (*loopPanel);
+
+    const char* tabNames[3] = { "RACK", "MORPH + GREMLINS", "LOOP STATION" };
+    for (int t = 0; t < 3; ++t)
+    {
+        tabs[t].setButtonText (tabNames[t]);
+        tabs[t].setClickingTogglesState (false);
+        tabs[t].onClick = [this, t] { setPage (t); };
+        addAndMakeVisible (tabs[t]);
+    }
 
     chain = std::make_unique<ChainStrip> (s, std::vector<ChainStrip::Node> {
         { "DYN", "dyn_on", col::dyn }, { "OCT", "oct_on", col::oct }, { "SYNTH", "syn_on", col::syn },
         { "WAH", "wah_on", col::wah }, { "DRIVE", "drv_on", col::drv }, { "EQ", "eq_on", col::eq },
-        { "GEN", "gen_on", col::gen }, { "HARM", "har_on", col::har }, { "MOD", "mod_on", col::mod },
+        { "GEN", "gen_on", col::gen }, { "GREM", "grm_on", col::grm }, { "HARM", "har_on", col::har }, { "MOD", "mod_on", col::mod },
         { "DELAY", "dly_on", col::dly }, { "VERB", "rev_on", col::rev }, { "LOOP", "loop_on", col::loop } });
     addAndMakeVisible (*chain);
 
@@ -196,6 +210,7 @@ ReedstormContent::ReedstormContent (ReedstormProcessor& p) : proc (p)
 
     for (auto& panel : panels) panel->refreshActive();
     setSize (designW, designH);
+    setPage (proc.uiPage);
     startTimerHz (30);
 }
 
@@ -315,25 +330,32 @@ void ReedstormContent::resized()
     width->setBounds (1172, 90, 90, 64);
     chain->setBounds (12, 164, getWidth() - 24, 36);
 
-    // panels
-    const int top = 206, bottom = getHeight() - 10, gap = 8;
-    const int rowH = (bottom - top - 2 * gap) / 3;
-    for (int row = 0; row < 3; ++row)
-    {
-        int totalCols = 0;
-        for (size_t i = 0; i < panels.size(); ++i) if (panelRow[i] == row) totalCols += panelCols[i];
-        int count = 0;
-        for (size_t i = 0; i < panels.size(); ++i) if (panelRow[i] == row) ++count;
-        const int avail = getWidth() - 24 - (count - 1) * gap;
-        int x = 12;
-        for (size_t i = 0; i < panels.size(); ++i)
+    // tabs
+    const int tabW = 190;
+    for (int t = 0; t < 3; ++t) tabs[t].setBounds (12 + t * (tabW + 6), 206, tabW, 28);
+
+    // panels of every page
+    const int top = 242, bottom = getHeight() - 10, gap = 8;
+    const int rowH = (bottom - top - gap) / 2;
+    for (int pg = 0; pg < 3; ++pg)
+        for (int row = 0; row < 2; ++row)
         {
-            if (panelRow[i] != row) continue;
-            const int w = avail * panelCols[i] / totalCols;
-            panels[i]->setBounds (x, top + row * (rowH + gap), w, rowH);
-            x += w + gap;
+            int totalCols = 0, count = 0;
+            for (size_t i = 0; i < panels.size(); ++i)
+                if (panelPage[i] == pg && panelRow[i] == row) { totalCols += panelCols[i]; ++count; }
+            if (count == 0) continue;
+            const int avail = getWidth() - 24 - (count - 1) * gap;
+            int x = 12;
+            for (size_t i = 0; i < panels.size(); ++i)
+            {
+                if (panelPage[i] != pg || panelRow[i] != row) continue;
+                const int w = avail * panelCols[i] / totalCols;
+                panels[i]->setBounds (x, top + row * (rowH + gap), w, rowH);
+                x += w + gap;
+            }
         }
-    }
+    for (size_t i = 0; i < panels.size(); ++i)
+        if (panelRow[i] == 9) panels[i]->setBounds (12, top, getWidth() - 24, bottom - top);
     grMeter.setBounds (dynPanel->spareCell.withSizeKeepingCentre (18, juce::jmin (dynPanel->spareCell.getHeight(), 84)));
 }
 
@@ -358,7 +380,8 @@ void ReedstormContent::timerCallback()
                 s.getRawParameterValue ("har_lvl1")->load() > 0.01f, s.getRawParameterValue ("har_lvl2")->load() > 0.01f);
 
     genPanel->zones.update (voiced, rs::midiToHz (concert + 12.0f * std::log2 (s.getRawParameterValue ("tuner_ref")->load() / 440.0f)));
-    loopPanel->update();
+    if (page == 2) loopPanel->update();
+    if (page == 1) grmPanel->update();
     chain->refresh();
     eqCurve->update();
     for (auto& p : panels) p->refreshActive();
@@ -374,6 +397,19 @@ void ReedstormContent::timerCallback()
         presetDescription = rs::factoryPresets()[(size_t) cur].description;
         repaint (20, 120, 320, 40);
     }
+}
+
+void ReedstormContent::setPage (int p)
+{
+    page = juce::jlimit (0, 2, p);
+    proc.uiPage = page;
+    for (size_t i = 0; i < panels.size(); ++i) panels[i]->setVisible (panelPage[i] == page);
+    for (int t = 0; t < 3; ++t)
+    {
+        tabs[t].setToggleState (t == page, juce::dontSendNotification);
+        tabs[t].setColour (juce::TextButton::textColourOffId, t == page ? col::brass : col::dim);
+    }
+    repaint();
 }
 
 //==============================================================================

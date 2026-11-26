@@ -3,6 +3,8 @@
 #include "Widgets.h"
 #include "Generator.h"
 #include "Looper.h"
+#include "Gremlins.h"
+#include <tuple>
 
 namespace rs::ui
 {
@@ -232,38 +234,56 @@ private:
 };
 
 //==============================================================================
+inline juce::Colour trackColour (int t)
+{
+    static const juce::Colour c[4] = { juce::Colour (0xffc8f03c), juce::Colour (0xffffa53d), juce::Colour (0xff3ee8ff), juce::Colour (0xffff5fa2) };
+    return c[t & 3];
+}
+
+inline juce::Colour loopStateColour (int st, juce::Colour play)
+{
+    return st == LoopTrack::Recording ? juce::Colour (0xffff4a4a)
+         : st == LoopTrack::Overdubbing ? juce::Colour (0xffffa53d)
+         : st == LoopTrack::Playing ? play : col::dim;
+}
+
 class LoopDisplay : public juce::Component
 {
 public:
-    explicit LoopDisplay (Looper& l) : looper (l) {}
+    LoopDisplay (LoopStation& s, int index) : station (s), track (s.track (index)), colour (trackColour (index)) {}
 
     void paint (juce::Graphics& g) override
     {
         auto r = getLocalBounds().toFloat();
         g.setColour (col::screen);
         g.fillRoundedRectangle (r, 6.0f);
-        const int state = looper.uiState.load();
-        const int len = looper.uiLength.load();
-        const int pos = looper.uiPos.load();
-        const double sr = looper.getSampleRate();
-        const juce::Colour stateCol = state == Looper::Recording ? juce::Colour (0xffff4a4a)
-                                    : state == Looper::Overdubbing ? juce::Colour (0xffffa53d)
-                                    : state == Looper::Playing ? col::loop : col::dim;
+        const int state = track.uiState.load();
+        const int len = track.uiLength.load();
+        const int pos = track.uiPos.load();
+        const double sr = track.getSampleRate();
+        const auto stateCol = loopStateColour (state, colour);
+        const int master = station.uiMasterLen.load();
 
-        auto wave = r.reduced (8.0f, 6.0f).withTrimmedTop (14.0f);
+        auto wave = r.reduced (8.0f, 5.0f).withTrimmedTop (13.0f);
         if (len > 0)
         {
-            const int shownLen = state == Looper::Recording ? juce::jmax (len, (int) (sr * 4.0)) : len;
-            const int nb = juce::jmax (1, len / Looper::binSize);
-            const float mid = wave.getCentreY();
+            const int shownLen = state == LoopTrack::Recording ? juce::jmax (len, master > 0 ? master : (int) (sr * 4.0)) : len;
+            // master-loop grid
+            if (master > 0 && shownLen > master)
+            {
+                g.setColour (juce::Colours::white.withAlpha (0.12f));
+                for (int k = master; k < shownLen; k += master)
+                    g.drawVerticalLine ((int) (wave.getX() + wave.getWidth() * (float) k / (float) shownLen), wave.getY(), wave.getBottom());
+            }
+            const int nb = juce::jmax (1, juce::jmin (len, state == LoopTrack::Recording ? pos : len) / LoopTrack::binSize);
+            const float bw = wave.getWidth() * (float) LoopTrack::binSize / (float) shownLen;
             juce::Path p;
-            const float bw = wave.getWidth() * (float) Looper::binSize / (float) shownLen;
             for (int b = 0; b < nb; ++b)
             {
-                const float v = juce::jmin (1.0f, std::sqrt (looper.bin (b)) * 1.1f) * wave.getHeight() * 0.5f;
-                p.addRectangle (wave.getX() + (float) b * bw, mid - v, juce::jmax (1.0f, bw * 0.8f), juce::jmax (1.0f, 2.0f * v));
+                const float v = juce::jmin (1.0f, std::sqrt (track.bin (b)) * 1.1f) * wave.getHeight() * 0.5f;
+                p.addRectangle (wave.getX() + (float) b * bw, wave.getCentreY() - v, juce::jmax (1.0f, bw * 0.8f), juce::jmax (1.0f, 2.0f * v));
             }
-            g.setColour (stateCol.withAlpha (0.75f));
+            g.setColour (stateCol.withAlpha (state == LoopTrack::Stopped ? 0.35f : 0.8f));
             g.fillPath (p);
             const float x = wave.getX() + wave.getWidth() * (float) pos / (float) shownLen;
             g.setColour (juce::Colours::white);
@@ -271,86 +291,377 @@ public:
         }
         else
         {
-            g.setColour (col::dim.withAlpha (0.6f));
-            g.setFont (font (12.0f));
-            g.drawText ("Press REC, play a phrase, press again to loop it", wave, juce::Justification::centred);
+            g.setColour (col::dim.withAlpha (0.5f));
+            g.setFont (font (11.5f));
+            g.drawText (master > 0 ? "REC to add a layer: it locks to the master loop" : "REC, play a phrase, press again to loop it",
+                        wave, juce::Justification::centred);
         }
 
         static const char* names[] = { "EMPTY", "RECORDING", "PLAYING", "OVERDUBBING", "STOPPED" };
-        auto head = r.reduced (8.0f, 3.0f).removeFromTop (13.0f);
+        auto head = r.reduced (8.0f, 2.0f).removeFromTop (13.0f);
         g.setColour (stateCol);
         g.fillEllipse (head.getX(), head.getCentreY() - 4, 8, 8);
         g.setFont (font (10.0f, true).withExtraKerningFactor (0.12f));
-        g.drawText (names[juce::jlimit (0, 4, state)], head.withTrimmedLeft (13), juce::Justification::centredLeft);
+        juce::String st = names[juce::jlimit (0, 4, state)];
+        if (track.uiWaiting.load()) st += "  (finishing the bar...)";
+        g.drawText (st, head.withTrimmedLeft (13), juce::Justification::centredLeft);
         g.setColour (col::dim);
         juce::String t = juce::String ((double) len / sr, 1) + " s";
-        if (looper.undoReady.load()) t = "UNDO READY   " + t;
+        if (master > 0 && len > 0 && state != LoopTrack::Recording) t = "x" + juce::String (juce::jmax (1, (len + master / 2) / master)) + "   " + t;
+        if (track.undoReady.load()) t = "UNDO READY   " + t;
         g.drawText (t, head, juce::Justification::centredRight);
     }
 
 private:
-    Looper& looper;
+    LoopStation& station;
+    LoopTrack& track;
+    juce::Colour colour;
 };
 
-class LooperPanel : public ModulePanel
+/** One loop track: transport, switches, level/pan and its waveform. */
+class TrackLane : public juce::Component
 {
 public:
-    LooperPanel (APVTS& s, Looper& l) : ModulePanel (s, "LOOPER", "records the whole rack", "loop_on", col::loop, 3), display (l), looper (l)
+    TrackLane (APVTS& s, LoopStation& st, int index)
+        : station (st), track (st.track (index)), idx (index), colour (trackColour (index)), display (st, index)
     {
+        const juce::String n (index + 1);
         addAndMakeVisible (display);
-        knob ("loop_level", "LEVEL");
-        knob ("loop_fb", "FEEDBACK").setTooltip ("How much of the existing loop survives each overdub pass");
-        toggle ("loop_rev", "REVERSE");
-        toggle ("loop_half", "HALF");
-        toggle ("loop_sync", "SNAP");
-        switches[2]->button.setTooltip ("Snap the loop length to whole beats of the host tempo");
-
-        auto setup = [this] (juce::TextButton& b, const juce::String& text, Looper::Command c, const juce::String& tip)
+        auto setup = [this] (juce::TextButton& b, const juce::String& text, LoopTrack::Command c, const juce::String& tip)
         {
             b.setButtonText (text);
             b.setTooltip (tip);
-            b.onClick = [this, c] { looper.post (c); };
+            b.onClick = [this, c] { station.post (idx, c); };
             addAndMakeVisible (b);
         };
-        setup (tap, "REC", Looper::Tap, "Footswitch: record, then play, then overdub. Also a host parameter (Loop Rec/Play/Dub) for MIDI pedals.");
-        setup (stop, "STOP", Looper::Stop, "Stop playback (press REC/PLAY to restart from the top)");
-        setup (undo, "UNDO", Looper::Undo, "Undo the last overdub. Press again to redo.");
-        setup (clear, "CLEAR", Looper::Clear, "Erase the loop");
+        setup (tap, "REC", LoopTrack::Tap, "Record, then play, then overdub. Host parameter: Track " + n + " Rec/Play/Dub (MIDI-learn it to a pedal).");
+        setup (stop, "STOP", LoopTrack::Stop, "Stop this track (REC/PLAY restarts it in sync)");
+        setup (undo, "UNDO", LoopTrack::Undo, "Undo the last overdub on this track; press again to redo");
+        setup (clear, "CLR", LoopTrack::Clear, "Erase this track");
+        for (auto [sw, id, label] : { std::tuple<std::unique_ptr<Switch>*, const char*, const char*> { &mute, "mute", "MUTE" },
+                                      { &rev, "rev", "REV" }, { &half, "half", "HALF" } })
+        {
+            *sw = std::make_unique<Switch> (s, "loop" + n + "_" + id, label, colour);
+            (*sw)->compact = true;
+            addAndMakeVisible (**sw);
+        }
+        level = std::make_unique<Knob> (s, "loop" + n + "_level", "LEVEL", colour);
+        pan = std::make_unique<Knob> (s, "loop" + n + "_pan", "PAN", colour, true);
+        addAndMakeVisible (*level);
+        addAndMakeVisible (*pan);
     }
 
     void update()
     {
         static const char* next[] = { "REC", "PLAY", "DUB", "PLAY", "PLAY" };
-        const int st = looper.uiState.load();
+        const int st = track.uiState.load();
         tap.setButtonText (next[juce::jlimit (0, 4, st)]);
-        const juce::Colour c = st == Looper::Recording ? juce::Colour (0xffff4a4a)
-                             : st == Looper::Overdubbing ? juce::Colour (0xffffa53d) : col::loop;
-        tap.setColour (juce::TextButton::textColourOffId, c);
-        undo.setEnabled (looper.undoReady.load());
+        tap.setColour (juce::TextButton::textColourOffId, st == LoopTrack::Recording ? juce::Colour (0xffff4a4a)
+                                                          : st == LoopTrack::Overdubbing ? juce::Colour (0xffffa53d) : colour);
+        undo.setEnabled (track.undoReady.load());
         display.repaint();
+        const float pk = track.uiPeak.load();
+        if (std::abs (pk - shownPeak) > 0.01f) { shownPeak = pk; repaint (0, 0, 40, getHeight()); }
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto r = getLocalBounds().toFloat();
+        g.setColour (juce::Colour (0xff15130f));
+        g.fillRoundedRectangle (r, 7.0f);
+        g.setColour (colour.withAlpha (0.35f));
+        g.drawRoundedRectangle (r.reduced (0.5f), 7.0f, 1.0f);
+        auto badge = juce::Rectangle<float> (8, 8, 26, r.getHeight() - 16);
+        g.setColour (colour.withAlpha (0.15f + 0.6f * juce::jmin (1.0f, shownPeak * 3.0f)));
+        g.fillRoundedRectangle (badge, 5.0f);
+        g.setColour (colour);
+        g.drawRoundedRectangle (badge, 5.0f, 1.2f);
+        g.setFont (font (18.0f, true));
+        g.drawText (juce::String (idx + 1), badge, juce::Justification::centred);
     }
 
     void resized() override
     {
-        auto r = contentArea();
-        display.setBounds (r.removeFromTop ((int) (r.getHeight() * 0.42f)));
-        r.removeFromTop (6);
-        auto buttons = r.removeFromTop (32);
-        const int bw = (buttons.getWidth() - 3 * 6) / 5;
-        tap.setBounds (buttons.removeFromLeft (bw * 2));
-        for (auto* b : { &stop, &undo, &clear }) { buttons.removeFromLeft (6); b->setBounds (buttons.removeFromLeft (bw)); }
-        r.removeFromTop (4);
-        auto knobsArea = r.removeFromLeft (r.getWidth() / 2);
-        layoutKnobGrid (knobsArea, 2);
-        r.removeFromLeft (6);
-        const int sh = juce::jmin (30, r.getHeight() / 3);
-        r = r.withSizeKeepingCentre (r.getWidth(), sh * 3);
-        for (auto& sw : switches) { sw->compact = true; sw->setBounds (r.removeFromTop (sh).reduced (0, 3)); }
+        auto r = getLocalBounds().reduced (6);
+        r.removeFromLeft (36);
+        auto controls = r.removeFromLeft (430);
+        r.removeFromLeft (8);
+        display.setBounds (r);
+
+        auto col1 = controls.removeFromLeft (150);
+        auto tapArea = col1.removeFromTop (col1.getHeight() / 2 + 6).reduced (0, 3);
+        tap.setBounds (tapArea);
+        const int bw = (col1.getWidth() - 8) / 3;
+        stop.setBounds (col1.removeFromLeft (bw).reduced (0, 3));
+        col1.removeFromLeft (4);
+        undo.setBounds (col1.removeFromLeft (bw).reduced (0, 3));
+        col1.removeFromLeft (4);
+        clear.setBounds (col1.reduced (0, 3));
+
+        controls.removeFromLeft (10);
+        auto sw = controls.removeFromLeft (90);
+        const int sh = sw.getHeight() / 3;
+        mute->setBounds (sw.removeFromTop (sh).reduced (0, 3));
+        rev->setBounds (sw.removeFromTop (sh).reduced (0, 3));
+        half->setBounds (sw.reduced (0, 3));
+        controls.removeFromLeft (8);
+        const int kw = controls.getWidth() / 2;
+        level->setBounds (controls.removeFromLeft (kw));
+        pan->setBounds (controls);
     }
 
 private:
+    LoopStation& station;
+    LoopTrack& track;
+    int idx;
+    juce::Colour colour;
     LoopDisplay display;
-    Looper& looper;
     juce::TextButton tap, stop, undo, clear;
+    std::unique_ptr<Switch> mute, rev, half;
+    std::unique_ptr<Knob> level, pan;
+    float shownPeak = 0;
+};
+
+class LoopStationPanel : public ModulePanel
+{
+public:
+    LoopStationPanel (APVTS& s, LoopStation& st)
+        : ModulePanel (s, "LOOP STATION", "4 tracks, phase-locked to the first loop", "loop_on", col::loop, 4), station (st)
+    {
+        for (int t = 0; t < 4; ++t)
+        {
+            lanes[t] = std::make_unique<TrackLane> (s, st, t);
+            addAndMakeVisible (*lanes[t]);
+        }
+        toggle ("loop_lock", "LOCK");
+        toggle ("loop_snap", "SNAP TO BEAT");
+        switches[0]->button.setTooltip ("Lock every track to whole multiples of the first loop, so layers never drift");
+        switches[1]->button.setTooltip ("Round the first loop's length to whole beats of the host tempo");
+        for (auto& sw : switches) sw->compact = true;
+        knob ("loop_fb", "FEEDBACK").setTooltip ("How much of the old layers survives each overdub pass");
+        stopAll.setButtonText ("STOP ALL");
+        clearAll.setButtonText ("CLEAR ALL");
+        stopAll.onClick = [this] { station.stopAll(); };
+        clearAll.onClick = [this] { station.clearAll(); };
+        addAndMakeVisible (stopAll);
+        addAndMakeVisible (clearAll);
+    }
+
+    void update() { for (auto& l : lanes) l->update(); repaint (masterBar.toNearestInt().expanded (2)); }
+
+    void resized() override
+    {
+        auto r = contentArea();
+        auto bar = r.removeFromTop (40);
+        switches[0]->setBounds (bar.removeFromLeft (80).reduced (0, 7));
+        bar.removeFromLeft (8);
+        switches[1]->setBounds (bar.removeFromLeft (120).reduced (0, 7));
+        bar.removeFromLeft (8);
+        clearAll.setBounds (bar.removeFromRight (96).reduced (0, 5));
+        bar.removeFromRight (8);
+        stopAll.setBounds (bar.removeFromRight (96).reduced (0, 5));
+        bar.removeFromRight (8);
+        extraCellBounds.clear();
+        layoutKnobGrid (bar.removeFromLeft (160).withTrimmedTop (-6).withTrimmedBottom (-10), 1);
+        bar.removeFromLeft (8);
+        masterBar = bar.toFloat().reduced (0, 10);
+        r.removeFromTop (6);
+        const int h = (r.getHeight() - 3 * 6) / 4;
+        for (auto& l : lanes) { l->setBounds (r.removeFromTop (h)); r.removeFromTop (6); }
+    }
+
+    void paintOverChildren (juce::Graphics& g) override
+    {
+        const int m = station.uiMasterLen.load();
+        auto b = masterBar;
+        g.setColour (col::screen);
+        g.fillRoundedRectangle (b, 4.0f);
+        if (m > 0)
+        {
+            const float ph = (float) station.uiMasterPos.load() / (float) m;
+            g.setColour (col::loop.withAlpha (0.35f));
+            g.fillRoundedRectangle (b.withWidth (juce::jmax (4.0f, b.getWidth() * ph)), 4.0f);
+            g.setColour (col::loop);
+            g.fillRect (b.getX() + b.getWidth() * ph - 1.5f, b.getY(), 3.0f, b.getHeight());
+            for (int k = 1; k < 4; ++k)
+            {
+                g.setColour (juce::Colours::black.withAlpha (0.5f));
+                g.drawVerticalLine ((int) (b.getX() + b.getWidth() * (float) k / 4.0f), b.getY(), b.getBottom());
+            }
+        }
+        g.setColour (m > 0 ? col::text : col::dim);
+        g.setFont (font (10.5f, true));
+        g.drawText (m > 0 ? "MASTER  " + juce::String ((double) m / station.track (0).getSampleRate(), 2) + " s" : "NO MASTER LOOP YET",
+                    b.reduced (8, 0), juce::Justification::centredRight);
+    }
+
+private:
+    LoopStation& station;
+    std::unique_ptr<TrackLane> lanes[4];
+    juce::TextButton stopAll, clearAll;
+    juce::Rectangle<float> masterBar;
+};
+
+//==============================================================================
+/** A little terrarium: every creature the gremlins spawn floats up with its name. */
+class CritterView : public juce::Component
+{
+public:
+    explicit CritterView (Gremlins& g) : gremlins (g) {}
+
+    void update (bool enabled)
+    {
+        const int spawned = gremlins.meters.spawned.load();
+        if (lastSpawned < 0) lastSpawned = spawned;
+        for (int k = std::max (lastSpawned, spawned - Gremlins::historySize); k < spawned; ++k)
+        {
+            Critter c;
+            c.type = gremlins.meters.history[(size_t) (k % Gremlins::historySize)].load();
+            c.x = 0.08f + 0.84f * rnd.nextFloat();
+            c.wobble = rnd.nextFloat() * 6.0f;
+            critters.push_back (c);
+        }
+        lastSpawned = spawned;
+        const int on = gremlins.meters.onsets.load();
+        if (on != lastOnsets) { lastOnsets = on; heard = 1.0f; }
+        heard *= 0.85f;
+        for (auto& c : critters) c.age += 1.0f / 30.0f;
+        critters.erase (std::remove_if (critters.begin(), critters.end(), [] (const Critter& c) { return c.age > 2.6f; }), critters.end());
+        if (critters.size() > 24) critters.erase (critters.begin(), critters.begin() + (long) (critters.size() - 24));
+        active = enabled;
+        repaint();
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto r = getLocalBounds().toFloat();
+        juce::ColourGradient bg (juce::Colour (0xff0b0910), r.getX(), r.getY(), juce::Colour (0xff120a12), r.getX(), r.getBottom(), false);
+        g.setGradientFill (bg);
+        g.fillRoundedRectangle (r, 8.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.035f));
+        for (float x = r.getX() + 12; x < r.getRight(); x += 24) g.drawVerticalLine ((int) x, r.getY(), r.getBottom());
+        for (float y = r.getY() + 12; y < r.getBottom(); y += 24) g.drawHorizontalLine ((int) y, r.getX(), r.getRight());
+
+        // "heard you" ear flash
+        auto ear = juce::Rectangle<float> (r.getRight() - 96, r.getY() + 8, 88, 18);
+        g.setColour (juce::Colour (0xffff4fd8).withAlpha (0.15f + 0.85f * heard));
+        g.fillRoundedRectangle (ear, 9.0f);
+        g.setColour (heard > 0.3f ? juce::Colours::black : col::dim);
+        g.setFont (font (10.0f, true));
+        g.drawText ("HEARD YOU", ear, juce::Justification::centred);
+
+        if (critters.empty())
+        {
+            g.setColour (col::dim.withAlpha (0.6f));
+            g.setFont (font (12.0f));
+            g.drawText (active ? "make a sound: play, clap, talk, click the keys..." : "switch GREMLINS on, then make any sound",
+                        r, juce::Justification::centred);
+        }
+
+        for (const auto& c : critters)
+        {
+            const bool harsh = c.type >= Gremlins::numSilly;
+            const float a = juce::jlimit (0.0f, 1.0f, 2.6f - c.age) * juce::jmin (1.0f, c.age * 8.0f);
+            const float x = r.getX() + r.getWidth() * c.x + 6.0f * std::sin (c.age * 5.0f + c.wobble);
+            const float y = r.getBottom() - 26.0f - (r.getHeight() - 50.0f) * juce::jmin (1.0f, c.age / 2.2f);
+            const float size = 22.0f + 6.0f * std::sin (c.age * 9.0f);
+            const auto colr = harsh ? juce::Colour::fromHSV (0.0f + 0.03f * (float) (c.type % 3), 0.75f, 0.95f, 1.0f)
+                                    : juce::Colour::fromHSV (0.12f + 0.12f * (float) c.type, 0.65f, 1.0f, 1.0f);
+            auto body = juce::Rectangle<float> (size, size).withCentre ({ x, y });
+            if (harsh)
+            {
+                juce::Path spiky;
+                for (int k = 0; k < 14; ++k)
+                {
+                    const float ang = juce::MathConstants<float>::twoPi * (float) k / 14.0f + c.age * 2.0f;
+                    const float rad = (k % 2 == 0 ? 0.62f : 0.38f) * size;
+                    const juce::Point<float> pt (x + std::cos (ang) * rad, y + std::sin (ang) * rad);
+                    if (k == 0) spiky.startNewSubPath (pt); else spiky.lineTo (pt);
+                }
+                spiky.closeSubPath();
+                g.setColour (colr.withAlpha (0.85f * a));
+                g.fillPath (spiky);
+                g.setColour (juce::Colours::black.withAlpha (a));
+                g.drawLine (x - 6, y - 4, x - 2, y - 1, 2.0f);     // angry eyebrows
+                g.drawLine (x + 6, y - 4, x + 2, y - 1, 2.0f);
+                g.fillEllipse (x - 5, y, 3, 3);
+                g.fillEllipse (x + 2, y, 3, 3);
+            }
+            else
+            {
+                g.setColour (colr.withAlpha (0.25f * a));
+                g.fillEllipse (body.expanded (5));
+                g.setColour (colr.withAlpha (0.9f * a));
+                g.fillEllipse (body);
+                g.setColour (juce::Colours::white.withAlpha (a));
+                g.fillEllipse (x - 7, y - 5, 6, 7);
+                g.fillEllipse (x + 1, y - 5, 6, 7);
+                g.setColour (juce::Colours::black.withAlpha (a));
+                g.fillEllipse (x - 5, y - 2, 3, 3);
+                g.fillEllipse (x + 3, y - 2, 3, 3);
+            }
+            g.setColour (colr.withAlpha (a));
+            g.setFont (font (harsh ? 13.0f : 12.0f, true).withExtraKerningFactor (harsh ? 0.15f : 0.0f));
+            g.drawText (Gremlins::typeName (c.type), juce::Rectangle<float> (x - 70, y + size * 0.5f + 1, 140, 15), juce::Justification::centred);
+        }
+    }
+
+private:
+    struct Critter { int type = 0; float x = 0.5f, age = 0, wobble = 0; };
+    Gremlins& gremlins;
+    std::vector<Critter> critters;
+    int lastSpawned = -1, lastOnsets = 0;
+    float heard = 0;
+    bool active = false;
+    juce::Random rnd;
+};
+
+class GremlinsPanel : public ModulePanel
+{
+public:
+    GremlinsPanel (APVTS& s, Gremlins& g) : ModulePanel (s, "GREMLINS", "any sound you make spawns creatures", "grm_on", col::grm, 4), view (g), gremlins (g)
+    {
+        addAndMakeVisible (view);
+        knob ("grm_sens", "SENS").setTooltip ("How easily a sound at the input wakes the gremlins");
+        knob ("grm_chance", "CHANCE").setTooltip ("Probability that a detected sound spawns something");
+        auto& h = knob ("grm_harsh", "SILLY<>HARSH", true);
+        h.valueText = [this]
+        {
+            const int v = juce::roundToInt (state.getRawParameterValue ("grm_harsh")->load() * 100.0f);
+            return "silly " + juce::String (100 - v) + " / harsh " + juce::String (v);
+        };
+        h.setTooltip ("Left: boing, pew, quack, bubbles, robot, whistle, kazoo. Right: clank, grinder, stutter, reverse ghost, screech, static.");
+        knob ("grm_dirt", "DIRT").setTooltip ("Industrial clipper + bit crusher + sample-rate reducer on the whole gremlin bus");
+        knob ("grm_follow", "FOLLOW").setTooltip ("How often creatures take their pitch from the note you are playing");
+        knob ("grm_swarm", "SWARM").setTooltip ("How many creatures each sound wakes up");
+        knob ("grm_level", "LEVEL");
+        spawn.setButtonText ("SPAWN!");
+        spawn.onClick = [this] { gremlins.manualSpawn.store (true); };
+        addAndMakeVisible (spawn);
+    }
+
+    void update() { view.update (isOn()); }
+
+    void resized() override
+    {
+        auto r = contentArea();
+        auto left = r.removeFromLeft ((int) (r.getWidth() * 0.42f));
+        r.removeFromLeft (12);
+        view.setBounds (r);
+        extraCellBounds.clear();
+        layoutKnobGrid (left, 4, 1);
+        if (! extraCellBounds.empty()) spawn.setBounds (extraCellBounds[0].withSizeKeepingCentre (juce::jmin (90, extraCellBounds[0].getWidth()), 32));
+    }
+
+    void refreshActive() override
+    {
+        ModulePanel::refreshActive();
+        spawn.setAlpha (isOn() ? 1.0f : 0.42f);
+    }
+
+private:
+    CritterView view;
+    Gremlins& gremlins;
+    juce::TextButton spawn;
 };
 } // namespace rs::ui

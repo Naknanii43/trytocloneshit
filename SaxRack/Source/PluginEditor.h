@@ -7,7 +7,7 @@
 class ReedstormContent : public juce::Component, private juce::Timer
 {
 public:
-    static constexpr int designW = 1280, designH = 1060;
+    static constexpr int designW = 1280, designH = 840;
 
     explicit ReedstormContent (ReedstormProcessor&);
     ~ReedstormContent() override;
@@ -48,7 +48,14 @@ private:
     rs::ui::ModulePanel* harPanel = nullptr;
     rs::ui::Knob* delayTimeKnob = nullptr;
     rs::ui::GeneratorPanel* genPanel = nullptr;
-    rs::ui::LooperPanel* loopPanel = nullptr;
+    rs::ui::LoopStationPanel* loopPanel = nullptr;
+    rs::ui::GremlinsPanel* grmPanel = nullptr;
+    std::vector<int> panelPage;
+    juce::TextButton tabs[3];
+    int page = 0;
+
+public:
+    void setPage (int p);
 
     juce::Image texture;
     int shownPreset = -1;
@@ -60,6 +67,7 @@ class ReedstormEditor : public juce::AudioProcessorEditor
 {
 public:
     explicit ReedstormEditor (ReedstormProcessor&);
+    void setPage (int p) { content.setPage (p); }
     void resized() override;
     void paint (juce::Graphics& g) override { g.fillAll (rs::ui::col::bg); }
 

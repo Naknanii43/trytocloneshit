@@ -185,18 +185,46 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     in ("gen_range", "Bloom Range", 1, 3, 2);
     fl ("gen_hold", "Trigger Hold", skewed (20.0f, 800.0f, 150.0f), 120.0f, "ms");
 
-    // Looper
-    bl ("loop_on", "Looper On", true);
-    fl ("loop_level", "Loop Level", { 0.0f, 1.5f }, 1.0f, "%");
+    // Gremlins
+    bl ("grm_on", "Gremlins On", false);
+    pct ("grm_sens", "Gremlin Sensitivity", 0.6f);
+    pct ("grm_chance", "Gremlin Chance", 0.7f);
+    pct ("grm_harsh", "Silly / Harsh", 0.3f);
+    pct ("grm_dirt", "Gremlin Dirt", 0.2f);
+    pct ("grm_follow", "Gremlin Pitch Follow", 0.5f);
+    pct ("grm_swarm", "Gremlin Swarm", 0.3f);
+    pct ("grm_level", "Gremlin Level", 0.6f);
+
+    // Loop station (4 tracks)
+    bl ("loop_on", "Loop Station On", true);
+    bl ("loop_lock", "Loop Lock To Master", true);
+    bl ("loop_snap", "Loop Snap to Beat", false);
     fl ("loop_fb", "Overdub Feedback", { 0.3f, 1.0f }, 1.0f, "%");
-    bl ("loop_rev", "Loop Reverse", false);
-    bl ("loop_half", "Loop Half Speed", false);
-    bl ("loop_sync", "Loop Snap to Beat", false);
-    // momentary "footswitch" parameters so a MIDI controller / DAW can drive the looper
-    bl ("loop_tap", "Loop Rec/Play/Dub", false);
-    bl ("loop_stop", "Loop Stop", false);
-    bl ("loop_undo", "Loop Undo", false);
-    bl ("loop_clear", "Loop Clear", false);
+    for (int t = 1; t <= 4; ++t)
+    {
+        const juce::String n (t);
+        const auto id = [&] (const char* suffix) { return juce::String ("loop") + n + "_" + suffix; };
+        layout.add (std::make_unique<AudioParameterFloat> (ParameterID { id ("level"), v }, "Track " + n + " Level",
+            NormalisableRange<float> (0.0f, 1.5f), 1.0f,
+            AudioParameterFloatAttributes().withStringFromValueFunction ([] (float x, int) { return String (roundToInt (x * 100.0f)) + "%"; })));
+        layout.add (std::make_unique<AudioParameterFloat> (ParameterID { id ("pan"), v }, "Track " + n + " Pan",
+            NormalisableRange<float> (-1.0f, 1.0f), 0.0f,
+            AudioParameterFloatAttributes().withStringFromValueFunction ([] (float x, int)
+            {
+                if (std::abs (x) < 0.01f) return String ("C");
+                return (x < 0 ? "L" : "R") + String (roundToInt (std::abs (x) * 100.0f));
+            })));
+        layout.add (std::make_unique<AudioParameterBool> (ParameterID { id ("mute"), v }, "Track " + n + " Mute", false));
+        layout.add (std::make_unique<AudioParameterBool> (ParameterID { id ("rev"), v }, "Track " + n + " Reverse", false));
+        layout.add (std::make_unique<AudioParameterBool> (ParameterID { id ("half"), v }, "Track " + n + " Half Speed", false));
+        // momentary footswitch parameters, MIDI-learnable in the host
+        layout.add (std::make_unique<AudioParameterBool> (ParameterID { id ("tap"), v }, "Track " + n + " Rec/Play/Dub", false));
+        layout.add (std::make_unique<AudioParameterBool> (ParameterID { id ("stop"), v }, "Track " + n + " Stop", false));
+        layout.add (std::make_unique<AudioParameterBool> (ParameterID { id ("undo"), v }, "Track " + n + " Undo", false));
+        layout.add (std::make_unique<AudioParameterBool> (ParameterID { id ("clear"), v }, "Track " + n + " Clear", false));
+    }
+    bl ("loop_stopall", "Loop Stop All", false);
+    bl ("loop_clearall", "Loop Clear All", false);
 
     // Output & tuner
     fl ("out_width", "Stereo Width", { 0.0f, 2.0f }, 1.0f, "%");

@@ -21,7 +21,7 @@ void Rack::prepare (double sampleRate)
     sr = sampleRate;
     tracker.prepare (sr);
 
-    for (auto* f : { &dynFade, &octFade, &synFade, &wahFade, &drvFade, &eqFade, &harFade, &modFade, &dlyFade, &revFade, &genFade })
+    for (auto* f : { &dynFade, &octFade, &synFade, &wahFade, &drvFade, &eqFade, &harFade, &modFade, &dlyFade, &revFade, &genFade, &grmFade })
         f->prepare (sr);
 
     gateEnv.setup (0.3f, 40.0f, sr);
@@ -60,6 +60,7 @@ void Rack::prepare (double sampleRate)
     shimHp.setCutoff (400.0f, sr);
 
     generator.prepare (sr);
+    gremlins.prepare (sr);
     looper.prepare (sr);
     inGainSm.reset (sr, 0.03);
     outGainSm.reset (sr, 0.03);
@@ -93,6 +94,7 @@ void Rack::reset()
     limGain = 1.0f;
     dlySmooth = 0;
     generator.reset();
+    gremlins.reset();
 }
 
 void Rack::updateFilters (const RackParams& p)
@@ -159,6 +161,7 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
     {
         mono[i] *= inGainSm.getNextValue();
         tracker.push (mono[i]);
+        rawIn[i] = mono[i];
         inPk = std::max (inPk, std::abs (mono[i]));
     }
     storeMax (meters.inPeak, inPk);
@@ -457,6 +460,12 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
 
     // ---- generative bloom (stereo), triggered by the zone you play in -------------------
     generator.processBloom (L, R, n, voiced, concertMidi, p.gen, bpm, p.gen.on);
+
+    // ---- gremlins: any sound at the input spawns peculiar creatures ----------------------
+    grmFade.set (p.grm.on);
+    gremlins.pollManual (voiced, midiToHz (trackedMidi), p.grm);
+    if (grmFade.active() || p.grm.on)
+        gremlins.process (rawIn, L, R, n, voiced, midiToHz (trackedMidi), p.grm, grmFade);
 
     // ---- modulation: chorus / flanger / phaser / rotary --------------------------------
     modFade.set (p.modOn);

@@ -139,6 +139,30 @@ inline const std::vector<Preset>& factoryPresets()
             { "dly_on", 1 }, { "dly_sync", 3 }, { "dly_fb", 0.6f }, { "dly_mix", 0.35f }, { "dly_duck", 0.7f }, { "dly_wobble", 0.3f },
             { "rev_on", 1 }, { "rev_size", 1.0f }, { "rev_decay", 10.0f }, { "rev_shimmer", 0.45f }, { "rev_mix", 0.55f } } },
 
+        { "Gremlin Party", "Gremlins", "Every note, breath and key click wakes silly creatures: boings, quacks, bubbles, robots. Pure mischief.",
+          { { "comp_amt", 0.35f }, { "grm_on", 1 }, { "grm_harsh", 0.12f }, { "grm_chance", 0.85f }, { "grm_swarm", 0.5f },
+            { "grm_follow", 0.6f }, { "grm_dirt", 0.05f }, { "grm_level", 0.7f },
+            { "dly_on", 1 }, { "dly_sync", 6 }, { "dly_fb", 0.3f }, { "dly_mix", 0.2f },
+            { "rev_on", 1 }, { "rev_size", 0.5f }, { "rev_decay", 1.8f }, { "rev_mix", 0.22f } } },
+
+        { "Industrial Factory", "Gremlins", "Harsh: every sound sets off clanks, grinders, stutters and screeches, crushed to bits, into a fuzzed sax.",
+          { { "comp_amt", 0.55f }, { "grm_on", 1 }, { "grm_harsh", 0.95f }, { "grm_chance", 0.9f }, { "grm_swarm", 0.6f },
+            { "grm_follow", 0.4f }, { "grm_dirt", 0.75f }, { "grm_level", 0.75f },
+            { "drv_on", 1 }, { "drv_type", 1 }, { "drv_drive", 0.55f }, { "drv_char", 0.4f }, { "drv_level", 1.0f },
+            { "eq_lowcut", 70 }, { "eq_mid", 3 }, { "eq_midf", 1500 },
+            { "rev_on", 1 }, { "rev_size", 0.75f }, { "rev_decay", 2.5f }, { "rev_damp", 0.2f }, { "rev_mix", 0.3f } } },
+
+        { "Cartoon Sax", "Gremlins", "Clean sax with sound effects that play along in your key: slide whistles, boings and laser pews on your notes.",
+          { { "comp_amt", 0.4f }, { "grm_on", 1 }, { "grm_harsh", 0.0f }, { "grm_chance", 1.0f }, { "grm_swarm", 0.2f },
+            { "grm_follow", 1.0f }, { "grm_dirt", 0.0f }, { "grm_level", 0.6f },
+            { "rev_on", 1 }, { "rev_size", 0.35f }, { "rev_decay", 1.2f }, { "rev_mix", 0.18f } } },
+
+        { "Broken Robot", "Gremlins", "Half silly, half broken machine, all bit-crushed, through a flanger and a ping-pong echo.",
+          { { "grm_on", 1 }, { "grm_harsh", 0.5f }, { "grm_chance", 0.8f }, { "grm_swarm", 0.4f }, { "grm_dirt", 0.45f },
+            { "grm_follow", 0.5f }, { "grm_level", 0.65f },
+            { "mod_on", 1 }, { "mod_type", 1 }, { "mod_rate", 0.2f }, { "mod_depth", 0.7f }, { "mod_fb", 0.6f }, { "mod_mix", 0.45f },
+            { "dly_on", 1 }, { "dly_sync", 5 }, { "dly_fb", 0.4f }, { "dly_mix", 0.25f } } },
+
         { "Rotary Club", "Vintage", "Spinning rotary speaker and tape warmth. Organ-trio soul.",
           { { "comp_amt", 0.35f }, { "drv_on", 1 }, { "drv_type", 3 }, { "drv_drive", 0.3f }, { "drv_tone", 0.45f }, { "drv_level", 3.5f },
             { "mod_on", 1 }, { "mod_type", 3 }, { "mod_rate", 5.8f }, { "mod_depth", 0.75f }, { "mod_mix", 0.85f },

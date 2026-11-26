@@ -28,6 +28,7 @@ namespace col
     const juce::Colour rev    { 0xff9cc2ff };
     const juce::Colour gen    { 0xff3ee8ff };
     const juce::Colour loop   { 0xffc8f03c };
+    const juce::Colour grm    { 0xffff4fd8 };
     const juce::Colour zone[4] { juce::Colour (0xff6a7dff), juce::Colour (0xff3ee8ff), juce::Colour (0xffffc94a), juce::Colour (0xffff5fa2) };
 }
 
@@ -163,13 +164,21 @@ public:
     void drawButtonBackground (juce::Graphics& g, juce::Button& b, const juce::Colour&, bool over, bool down) override
     {
         auto r = b.getLocalBounds().toFloat().reduced (0.5f);
-        g.setColour (down ? col::brass.withAlpha (0.3f) : over ? juce::Colour (0xff2a251e) : juce::Colour (0xff1c1915));
+        const bool on = b.getToggleState();
+        g.setColour (down ? col::brass.withAlpha (0.3f) : on ? col::brass.withAlpha (0.16f) : over ? juce::Colour (0xff2a251e) : juce::Colour (0xff1c1915));
         g.fillRoundedRectangle (r, 4.0f);
-        g.setColour (over ? col::brass : col::edge.brighter (0.3f));
-        g.drawRoundedRectangle (r, 4.0f, 1.0f);
+        g.setColour (over || on ? col::brass : col::edge.brighter (0.3f));
+        g.drawRoundedRectangle (r, 4.0f, on ? 1.5f : 1.0f);
     }
 
-    juce::Font getTextButtonFont (juce::TextButton&, int h) override { return font ((float) h * 0.55f, true); }
+    juce::Font getTextButtonFont (juce::TextButton& b, int h) override
+    {
+        // shrink to fit narrow buttons instead of truncating to "..."
+        float size = juce::jmin ((float) h * 0.55f, 22.0f);
+        while (size > 9.0f && juce::GlyphArrangement::getStringWidth (font (size, true), b.getButtonText()) > (float) b.getWidth() - size * 1.3f - 6.0f)
+            size -= 0.5f;
+        return font (size, true);
+    }
 
     // Power LEDs and small switches
     void drawToggleButton (juce::Graphics& g, juce::ToggleButton& b, bool over, bool) override

@@ -13,6 +13,7 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <chrono>
 #include <functional>
+#include <tuple>
 
 static void writeWav (const juce::File& file, const juce::AudioBuffer<float>& buf, double sr)
 {
@@ -316,57 +317,140 @@ int main (int argc, char** argv)
         if (zoneHits[0] != 1 || zoneHits[1] != 1 || zoneHits[2] != 1 || zoneHits[3] != 1) fail ("bloom per zone");
     }
 
-    //------------------------------------------------------------------------------ looper
+    //------------------------------------------------------------------------------ loop station
     {
         const double sr = 48000.0;
-        rs::Looper lp;
-        lp.prepare (sr);
+        rs::LoopStation st;
+        st.prepare (sr);
         rs::LoopParams prm;
         const int block = 128;
         float L[block], R[block];
-        auto feed = [&] (int samples, std::function<float (int)> src, std::vector<float>* capture = nullptr)
+        long long now = 0;
+        auto feed = [&] (int samples, std::function<float (long long)> src, std::vector<float>* capture = nullptr)
         {
-            static int t = 0;
             for (int done = 0; done < samples; done += block)
             {
-                for (int i = 0; i < block; ++i) { L[i] = R[i] = src (t + i); }
-                lp.process (L, R, block, prm, 120.0);
+                for (int i = 0; i < block; ++i) { L[i] = R[i] = src (now + i); }
+                st.process (L, R, block, prm, 120.0);
                 if (capture) capture->insert (capture->end(), L, L + block);
-                t += block;
+                now += block;
             }
         };
-        auto sine = [&] (float hz) { return [hz, sr] (int t) { return 0.3f * std::sin (rs::twoPi * hz * (float) t / (float) sr); }; };
-        auto silence = [] (int) { return 0.0f; };
-        const int loopLen = 48000;
+        auto sine = [&] (float hz) { return [hz, sr] (long long t) { return 0.3f * std::sin (rs::twoPi * hz * (float) t / (float) sr); }; };
+        auto silence = [] (long long) { return 0.0f; };
+        const int M = 48000;
+        auto& t0 = st.track (0);
 
-        lp.post (rs::Looper::Tap);  feed (loopLen, sine (440));          // record 1 s of A
-        lp.post (rs::Looper::Tap);  std::vector<float> pass1; feed (loopLen * 2, silence, &pass1);
-        const int len = lp.uiLength.load();
+        st.post (0, rs::LoopTrack::Tap);  feed (M, sine (440));          // record 1 s of A on track 1
+        st.post (0, rs::LoopTrack::Tap);  std::vector<float> pass1; feed (M * 2, silence, &pass1);
+        const int len = t0.uiLength.load();
         double err = 0, energy = 0;
-        for (int i = 4800; i < loopLen; ++i) { err += std::abs (pass1[(size_t) i] - pass1[(size_t) (i + len)]); energy += std::abs (pass1[(size_t) i]); }
-        std::printf ("Looper: length %d samples, repeats exactly: %s, level %.3f\n", len, err < 1e-3 ? "yes" : "NO", energy / loopLen);
-        if (len != loopLen || err > 1e-3 || energy / loopLen < 0.08) fail ("looper record/play");
+        for (int i = 4800; i < M; ++i) { err += std::abs (pass1[(size_t) i] - pass1[(size_t) (i + len)]); energy += std::abs (pass1[(size_t) i]); }
+        std::printf ("Loop track 1: length %d, master %d, repeats exactly: %s\n", len, st.uiMasterLen.load(), err < 1e-3 ? "yes" : "NO");
+        if (len != M || st.uiMasterLen.load() != M || err > 1e-3 || energy / M < 0.08) fail ("loop record/play");
 
-        lp.post (rs::Looper::Tap);  feed (loopLen, sine (660));          // overdub E
-        lp.post (rs::Looper::Tap);  feed (loopLen * 2, silence);          // play, snapshot completes
-        std::vector<float> dubbed; feed (loopLen, silence, &dubbed);
-        const bool undoReady = lp.undoReady.load();
-        lp.post (rs::Looper::Undo); std::vector<float> undone; feed (loopLen, silence, &undone);
-        lp.post (rs::Looper::Undo); std::vector<float> redone; feed (loopLen, silence, &redone);
+        st.post (0, rs::LoopTrack::Tap);  feed (M, sine (660));          // overdub E
+        st.post (0, rs::LoopTrack::Tap);  feed (M * 2, silence);
+        std::vector<float> dubbed; feed (M, silence, &dubbed);
+        const bool undoReady = t0.undoReady.load();
+        st.post (0, rs::LoopTrack::Undo); std::vector<float> undone; feed (M, silence, &undone);
+        st.post (0, rs::LoopTrack::Undo); std::vector<float> redone; feed (M, silence, &redone);
         double eDub = 0, eUndo = 0, dRedo = 0, dUndo = 0;
-        for (int i = 0; i < loopLen; ++i)
+        for (int i = 0; i < M; ++i)
         {
             eDub += dubbed[(size_t) i] * dubbed[(size_t) i];
             eUndo += undone[(size_t) i] * undone[(size_t) i];
             dRedo += std::abs (redone[(size_t) i] - dubbed[(size_t) i]);
             if (i >= 4800) dUndo += std::abs (undone[(size_t) i] - pass1[(size_t) i]);
         }
-        std::printf ("Looper overdub energy %.1f -> undo %.1f (matches first take: %s) -> redo matches overdub: %s\n",
+        std::printf ("Overdub energy %.1f -> undo %.1f (matches first take: %s) -> redo matches overdub: %s\n",
                      eDub, eUndo, dUndo < 1.0 ? "yes" : "NO", dRedo < 1.0 ? "yes" : "NO");
-        if (! undoReady || eDub < eUndo * 1.5 || dUndo > 1.0 || dRedo > 1.0) fail ("looper overdub/undo/redo");
+        if (! undoReady || eDub < eUndo * 1.5 || dUndo > 1.0 || dRedo > 1.0) fail ("loop overdub/undo/redo");
 
-        lp.post (rs::Looper::Clear); feed (block, silence);
-        if (lp.uiState.load() != rs::Looper::Empty || lp.uiLength.load() != 0) fail ("looper clear");
+        // track 2: started off the beat, closed after 1.4 master loops -> must become exactly 2x and stay phase-locked
+        prm.track[0].mute = true;
+        feed (13 * block, silence);
+        st.post (1, rs::LoopTrack::Tap);
+        const long long impulseAt = now + 7000;
+        feed ((int) (M * 1.4) / block * block, [&] (long long t) { return t == impulseAt ? 1.0f : 0.0f; });
+        st.post (1, rs::LoopTrack::Tap);
+        feed (M, silence);                                      // finishes the second bar by itself
+        auto& t1 = st.track (1);
+        std::vector<float> out2; const long long cap2 = now; feed (M * 4, silence, &out2);
+        auto lockedOk = [&] (const std::vector<float>& v, long long base, int period)
+        {
+            int hits = 0, bad = 0;
+            for (size_t i = 0; i < v.size(); ++i)
+                if (std::abs (v[i]) > 0.5f) { ++hits; if (((base + (long long) i - impulseAt) % period + period) % period != 0) ++bad; }
+            return std::make_pair (hits, bad);
+        };
+        auto [hits, bad] = lockedOk (out2, cap2, t1.uiLength.load());
+        std::printf ("Track 2: length %d (= %.2f x master), impulse repeats %d times, %d off-grid\n",
+                     t1.uiLength.load(), (double) t1.uiLength.load() / M, hits, bad);
+        if (t1.uiLength.load() != 2 * M || hits < 2 || bad != 0) fail ("loop lock");
+
+        st.post (1, rs::LoopTrack::Stop);    feed (M / 3 / block * block, silence);
+        st.post (1, rs::LoopTrack::Tap);     std::vector<float> out3; const long long cap3 = now; feed (M * 4, silence, &out3);
+        auto [hits3, bad3] = lockedOk (out3, cap3, M);
+        std::printf ("Track 2 after stop/restart: %d hits, %d off the master grid\n", hits3, bad3);
+        if (hits3 < 1 || bad3 != 0) fail ("loop restart in sync");
+
+        st.clearAll(); feed (block * 2, silence);
+        if (st.track (0).uiState.load() != rs::LoopTrack::Empty || st.uiMasterLen.load() != 0) fail ("loop clear all");
+    }
+
+    //------------------------------------------------------------------------------ gremlins
+    {
+        const double sr = 48000.0;
+        auto runGremlins = [&] (float harsh, int seconds, int* counts, float& peak, bool& finite)
+        {
+            rs::Gremlins g;
+            g.prepare (sr);
+            rs::GremlinParams gp;
+            gp.on = true; gp.harsh = harsh; gp.chance = 1.0f; gp.swarm = 1.0f; gp.dirt = 0.5f; gp.level = 1.0f;
+            rs::Fade fade; fade.prepare (sr); fade.set (true);
+            rs::Noise nz;
+            const int block = 256;
+            float in[block], L[block], R[block];
+            int seen = 0;
+            peak = 0; finite = true;
+            for (long long t = 0; t < (long long) seconds * (long long) sr; t += block)
+            {
+                for (int i = 0; i < block; ++i)
+                {
+                    const long long k = (t + i) % (long long) (sr * 0.3);     // a clap every 300 ms
+                    in[i] = k < 600 ? nz.next() * 0.6f * (1.0f - (float) k / 600.0f) : 0.0f;
+                    L[i] = R[i] = 0.0f;
+                }
+                g.process (in, L, R, block, true, 220.0f, gp, fade);
+                for (int i = 0; i < block; ++i)
+                {
+                    if (! std::isfinite (L[i]) || ! std::isfinite (R[i])) finite = false;
+                    peak = juce::jmax (peak, std::abs (L[i]), std::abs (R[i]));
+                }
+                const int sp = g.meters.spawned.load();
+                for (; seen < sp; ++seen) counts[g.meters.history[(size_t) (seen % rs::Gremlins::historySize)].load()]++;
+            }
+            return g.meters.onsets.load();
+        };
+        int silly[rs::Gremlins::numTypes] {}, harshC[rs::Gremlins::numTypes] {}, mixed[rs::Gremlins::numTypes] {};
+        float pk1, pk2, pk3; bool f1, f2, f3;
+        const int onsets = runGremlins (0.0f, 12, silly, pk1, f1);
+        runGremlins (1.0f, 12, harshC, pk2, f2);
+        runGremlins (0.5f, 40, mixed, pk3, f3);
+        int sillyWrong = 0, harshWrong = 0, missing = 0, total = 0;
+        for (int t = 0; t < rs::Gremlins::numTypes; ++t)
+        {
+            if (t >= rs::Gremlins::numSilly) sillyWrong += silly[t]; else harshWrong += harshC[t];
+            if (mixed[t] == 0) ++missing;
+            total += mixed[t];
+        }
+        std::printf ("Gremlins: %d onsets heard from 40 claps; silly mode spawned %d harsh, harsh mode spawned %d silly; "
+                     "mixed run: %d creatures, %d of %d kinds never appeared; peaks %.2f %.2f %.2f\n",
+                     onsets, sillyWrong, harshWrong, total, missing, rs::Gremlins::numTypes, pk1, pk2, pk3);
+        if (onsets < 36 || onsets > 44) fail ("gremlin onset detection");
+        if (sillyWrong || harshWrong || missing) fail ("gremlin silly/harsh selection");
+        if (! (f1 && f2 && f3) || pk3 > 4.0f || pk3 < 0.05f) fail ("gremlin output");
     }
 
     //------------------------------------------------------------------------------ presets
@@ -428,28 +512,46 @@ int main (int argc, char** argv)
         const double sr = 48000.0;
         proc.setPlayConfigDetails (2, 2, sr, 512);
         proc.prepareToPlay (sr, 512);
+        proc.apvts.getParameter ("grm_on")->setValueNotifyingHost (1.0f);
+        proc.apvts.getParameter ("grm_harsh")->setValueNotifyingHost (0.45f);
+        proc.apvts.getParameter ("grm_swarm")->setValueNotifyingHost (0.6f);
         std::unique_ptr<juce::AudioProcessorEditor> ed (proc.createEditor());
+        auto* red = dynamic_cast<ReedstormEditor*> (ed.get());
         ed->setSize (ReedstormContent::designW, ReedstormContent::designH);
+        red->setPage (0);
         const auto in = synthSax (phrase(), sr, 100.0);
         juce::MidiBuffer midi;
         const int stop = (int) (sr * 6.15);
+        auto& ls = proc.looper();
         for (int pos = 0; pos < stop; pos += 512)
         {
             juce::AudioBuffer<float> buf (2, 512);
             buf.copyFrom (0, 0, in, 0, pos, 512);
             buf.copyFrom (1, 0, in, 0, pos, 512);
-            if (pos == 512 * 4) proc.looper().post (rs::Looper::Tap);          // record...
-            if (pos == 512 * 330) proc.looper().post (rs::Looper::Tap);        // ...and loop ~3.5 s
+            const int blk = pos / 512;
+            if (blk == 4)   ls.post (0, rs::LoopTrack::Tap);      // track 1: master loop
+            if (blk == 190) ls.post (0, rs::LoopTrack::Tap);
+            if (blk == 200) ls.post (1, rs::LoopTrack::Tap);      // track 2: locks to 2x
+            if (blk == 300) ls.post (1, rs::LoopTrack::Tap);
+            if (blk == 420) ls.post (2, rs::LoopTrack::Tap);      // track 3: recording when we look
+            if (blk == 495) red->setPage (1);
             proc.processBlock (buf, midi);
-            if ((pos / 512) % 3 == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (33);
+            if (blk % 3 == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (33);
         }
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (60);
-        const auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
-        juce::PNGImageFormat png;
-        auto f = outDir.getChildFile ("ui.png");
-        f.deleteFile();
-        if (auto s = f.createOutputStream()) png.writeImageToStream (img, *s);
-        std::printf ("\nEditor snapshot: %s\n", f.getFullPathName().toRawUTF8());
+        auto snap = [&] (const char* name)
+        {
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+            const auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+            juce::PNGImageFormat png;
+            auto f = outDir.getChildFile (name);
+            f.deleteFile();
+            if (auto s2 = f.createOutputStream()) png.writeImageToStream (img, *s2);
+            std::printf ("Editor snapshot: %s\n", f.getFullPathName().toRawUTF8());
+        };
+        std::printf ("\n");
+        snap ("ui_generate.png");
+        red->setPage (2); snap ("ui_loops.png");
+        red->setPage (0); snap ("ui.png");
 
         // also check the editor survives a resize and every preset switch
         ed->setSize (ReedstormContent::designW / 2, ReedstormContent::designH / 2);
