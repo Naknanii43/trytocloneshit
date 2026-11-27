@@ -42,6 +42,7 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
     int uiPage = 0;    // editor tab, remembered while the plugin is loaded
+    bool uiAdvanced = false;   // false = the simple PLAY screen
     rs::RackMeters& meters() { return rack.meters; }
     rs::LoopStation& looper() { return rack.looper; }
     rs::Gremlins& gremlins() { return rack.gremlins; }
@@ -50,6 +51,7 @@ public:
 
 private:
     rs::RackParams snapshot() const;
+    void applyPerformMacros (rs::RackParams& p) const;
     float get (const char* id) const;
 
     rs::Rack rack;

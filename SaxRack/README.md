@@ -14,7 +14,18 @@ at the end of the chain lets you layer it all live.
 | **Morph + Gremlins** | **Loop Station** |
 | ![Morph + Gremlins](docs/ui_generate.png) | ![Loop Station](docs/ui_loops.png) |
 
-![Reedstorm](docs/ui.png)
+![Reedstorm PLAY screen](docs/ui_play.png)
+
+## Start here: the PLAY screen
+Reedstorm opens on a simple screen with three steps:
+
+1. **Choose a World**: Clean, Jazz Club, Funk, Dream, Synth, Monster, Cartoon or Factory.
+2. **Transform it as you play** with one pad. Left to right turns your sax into a synth (the Morph engine); bottom to top goes from clean to chaos (gremlins, then fuzz, then beat-repeat glitches). Double-click the pad to return to the pure World. The pad is automatable and works well on an XY controller or an expression pedal.
+3. **Shape it**: **SPACE** (drier, or room, then echoes, then an endless shimmer), **TONE** (dark to bright), **HARMONY** (World / Off / 3rd / 3rd + 5th / Octaves / Power 5th), a big **FREEZE** button and a one-button **LOOP** (record, play, layer, undo, clear).
+
+These controls bend whatever World is loaded without overwriting it. **EDIT** in the header opens the full rack: all 24 modules, the 4-track Loop Station and all 43 presets. Nothing was removed.
+
+![Reedstorm EDIT view](docs/ui.png)
 
 ## 🎧 Listen
 
@@ -105,7 +116,7 @@ Each track has one footswitch button that goes **REC**, then **PLAY** (the loop 
 - Each track can hold up to 25 s at 48 kHz.
 - For hands-free use, these are host parameters you can MIDI-learn to a foot controller: *Track N Rec/Play/Dub*, *Stop*, *Undo* and *Clear*, plus *Loop Stop All* and *Loop Clear All*.
 
-The window has five tabs: **RACK**, **MANGLE**, **TEXTURE**, **MORPH + GREMLINS** and **LOOP STATION**. The signal chain strip stays visible on every tab, so you can switch any module on or off from anywhere.
+The window opens on **PLAY**. **EDIT** has five tabs: **RACK**, **MANGLE**, **TEXTURE**, **MORPH + GREMLINS** and **LOOP STATION**. The signal chain strip stays visible on every tab, so you can switch any module on or off from anywhere.
 
 **Header:** factory preset browser, **tuner**, **pitch trace** (a scrolling piano roll of what you play; with Harmony on it also draws the harmony voices in green), input gain, output gain, stereo width, and IN / L / R meters. A safety limiter on the output stops overs.
 
@@ -176,6 +187,7 @@ Source/Gremlins.h        onset detector + 13 creature sounds + DIRT bus
 Source/Mangle.h          Whammy, Ring Mod, Freeze (granular), Slicer (tempo gate)
 Source/MangleUI.h        Mangle page panels (bend readout, FREEZE button, step grid)
 Source/Texture.h         Formant, Talk Box, Doubler, Tremolo, Beat Repeat, Spring, Cloud
+Source/PlayUI.h          PLAY screen: Worlds, Transform pad, Space/Tone/Harmony, Freeze, Loop
 Source/TextureUI.h       Texture page panels
 Source/GenLoopUI.h       zone map, Morph Gen, Gremlins terrarium and Loop Station panels
 Source/PitchTracker.h    YIN pitch tracker (decimated, cheap enough for the audio thread)

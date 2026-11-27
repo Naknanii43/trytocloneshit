@@ -47,7 +47,7 @@ public:
     {
         auto r = getLocalBounds();
         r.removeFromBottom (16);
-        const int s = juce::jmin (r.getWidth(), r.getHeight(), 70);
+        const int s = juce::jmin (r.getWidth(), r.getHeight(), maxSize);
         slider.setBounds (r.withSizeKeepingCentre (s, s));
     }
 
@@ -65,6 +65,7 @@ public:
     }
 
     juce::Slider slider;
+    int maxSize = 70;
 
 private:
     juce::String name;

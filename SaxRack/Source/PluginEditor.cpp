@@ -238,7 +238,20 @@ ReedstormContent::ReedstormContent (ReedstormProcessor& p) : proc (p)
 
     for (auto& panel : panels) panel->refreshActive();
     setSize (designW, designH);
-    setPage (proc.uiPage);
+    playPage = std::make_unique<PlayPage> (proc);
+    addAndMakeVisible (*playPage);
+    const char* modeNames[2] = { "PLAY", "EDIT" };
+    for (int k = 0; k < 2; ++k)
+    {
+        modeButtons[k].setButtonText (modeNames[k]);
+        modeButtons[k].onClick = [this, k] { setAdvanced (k == 1); };
+        addAndMakeVisible (modeButtons[k]);
+    }
+    modeButtons[0].setTooltip ("The simple view: choose a World, transform it, shape it");
+    modeButtons[1].setTooltip ("Every module, the full Loop Station and all 43 presets");
+    page = proc.uiPage;
+    resized();
+    setAdvanced (proc.uiAdvanced);
     startTimerHz (30);
 }
 
@@ -332,7 +345,8 @@ void ReedstormContent::paint (juce::Graphics& g)
     // preset description
     g.setColour (col::dim.brighter (0.2f));
     g.setFont (font (11.5f));
-    g.drawFittedText (presetDescription, juce::Rectangle<int> (30, 124, 300, 32), juce::Justification::topLeft, 2);
+    if (! advanced)
+        g.drawFittedText (presetDescription, juce::Rectangle<int> (30, 124, 300, 32), juce::Justification::topLeft, 2);
 
     // labels in the output section
     g.setColour (col::brass.withAlpha (0.8f));
@@ -343,9 +357,12 @@ void ReedstormContent::paint (juce::Graphics& g)
 void ReedstormContent::resized()
 {
     // header
-    presetBox.setBounds (30, 92, 236, 28);
-    prevButton.setBounds (270, 92, 26, 28);
-    nextButton.setBounds (298, 92, 26, 28);
+    modeButtons[0].setBounds (30, 90, 84, 28);
+    modeButtons[1].setBounds (118, 90, 84, 28);
+    presetBox.setBounds (30, 126, 236, 26);
+    prevButton.setBounds (270, 126, 26, 26);
+    nextButton.setBounds (298, 126, 26, 26);
+    if (playPage != nullptr) playPage->setBounds (12, 174, getWidth() - 24, getHeight() - 186);
     tuner.setBounds (342, 18, 238, 134);
     trace.setBounds (590, 18, 400, 134);
     instrument->setBounds (1000, 22, 96, 40);
@@ -427,13 +444,27 @@ void ReedstormContent::timerCallback()
         presetDescription = rs::factoryPresets()[(size_t) cur].description;
         repaint (20, 120, 320, 40);
     }
+    if (! advanced) playPage->update();
+}
+
+void ReedstormContent::setAdvanced (bool a)
+{
+    advanced = a;
+    proc.uiAdvanced = a;
+    chain->setVisible (a);
+    for (auto& t : tabs) t.setVisible (a);
+    for (auto* c : { (juce::Component*) &presetBox, (juce::Component*) &prevButton, (juce::Component*) &nextButton }) c->setVisible (a);
+    playPage->setVisible (! a);
+    modeButtons[0].setToggleState (! a, juce::dontSendNotification);
+    modeButtons[1].setToggleState (a, juce::dontSendNotification);
+    setPage (page);
 }
 
 void ReedstormContent::setPage (int p)
 {
     page = juce::jlimit (0, 4, p);
     proc.uiPage = page;
-    for (size_t i = 0; i < panels.size(); ++i) panels[i]->setVisible (panelPage[i] == page);
+    for (size_t i = 0; i < panels.size(); ++i) panels[i]->setVisible (advanced && panelPage[i] == page);
     for (int t = 0; t < 5; ++t)
     {
         tabs[t].setToggleState (t == page, juce::dontSendNotification);

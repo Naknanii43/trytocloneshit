@@ -33,6 +33,7 @@ inline const juce::StringArray brpModes      { "Manual", "Auto" };
 inline const juce::StringArray brpGrids      { "1/4", "1/8", "1/16", "1/32", "1/8 trip", "1/16 trip" };
 inline const juce::StringArray brpLengths    { "1/2 beat", "1 beat", "2 beats", "4 beats" };
 inline const juce::StringArray cldPitchModes { "Free", "Octaves", "Fifths" };
+inline const juce::StringArray perfHarmonies { "World", "Off", "3rd", "3rd + 5th", "Octaves", "Power 5th" };
 inline const juce::StringArray instruments   { "Concert C", "Soprano Bb", "Alto Eb", "Tenor Bb", "Bari Eb" };
 
 /** Semitones from sounding (concert) pitch to the written note, per instrument. */
@@ -349,6 +350,13 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     }
     bl ("loop_stopall", "Loop Stop All", false);
     bl ("loop_clearall", "Loop Clear All", false);
+
+    // PLAY page macros: applied on top of whatever is loaded, never written into it
+    pct ("perf_morph", "Transform: Sax to Synth", 0.0f);
+    pct ("perf_chaos", "Transform: Clean to Chaos", 0.0f);
+    pct ("perf_space", "Space", 0.5f);
+    fl ("perf_tone", "Tone", { -1.0f, 1.0f }, 0.0f, "", 2);
+    ch ("perf_harm", "Harmony Style", perfHarmonies, 0);
 
     // Output & tuner
     fl ("out_width", "Stereo Width", { 0.0f, 2.0f }, 1.0f, "%");

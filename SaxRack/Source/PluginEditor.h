@@ -4,6 +4,7 @@
 #include "GenLoopUI.h"
 #include "MangleUI.h"
 #include "TextureUI.h"
+#include "PlayUI.h"
 
 /** All UI at a fixed design size; the editor scales it to whatever size the window is. */
 class ReedstormContent : public juce::Component, private juce::Timer
@@ -61,8 +62,13 @@ private:
     rs::ui::SlicerPanel* gatPanel = nullptr;
     int page = 0;
 
+    std::unique_ptr<rs::ui::PlayPage> playPage;
+    juce::TextButton modeButtons[2];
+    bool advanced = false;
+
 public:
     void setPage (int p);
+    void setAdvanced (bool a);
 
     juce::Image texture;
     int shownPreset = -1;
@@ -74,7 +80,8 @@ class ReedstormEditor : public juce::AudioProcessorEditor
 {
 public:
     explicit ReedstormEditor (ReedstormProcessor&);
-    void setPage (int p) { content.setPage (p); }
+    void setPage (int p) { content.setAdvanced (true); content.setPage (p); }
+    void setSimple() { content.setAdvanced (false); }
     void resized() override;
     void paint (juce::Graphics& g) override { g.fillAll (rs::ui::col::bg); }
 

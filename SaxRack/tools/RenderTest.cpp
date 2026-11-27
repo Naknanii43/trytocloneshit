@@ -583,6 +583,23 @@ int main (int argc, char** argv)
         }
         snap ("ui_texture.png");
 
+        // PLAY screen (the default view)
+        for (auto* id : { "fmt_on", "tlk_on", "dbl_on", "trm_on", "brp_on", "spr_on", "cld_on", "har_on" }) proc.apvts.getParameter (id)->setValueNotifyingHost (0.0f);
+        for (int i = 0; i < proc.getNumPrograms(); ++i) if (proc.getProgramName (i) == "Ambient Shimmer") proc.loadPreset (i);
+        auto setReal = [&] (const char* id, float v) { auto* pr = proc.apvts.getParameter (id); pr->setValueNotifyingHost (pr->convertTo0to1 (v)); };
+        setReal ("perf_morph", 0.62f); setReal ("perf_chaos", 0.3f); setReal ("perf_space", 0.7f); setReal ("perf_tone", 0.2f); setReal ("perf_harm", 3);
+        red->setSimple();
+        for (int pos = 0; pos < (int) (sr * 2.5); pos += 512)
+        {
+            juce::AudioBuffer<float> buf (2, 512);
+            buf.copyFrom (0, 0, in, 0, pos, 512);
+            buf.copyFrom (1, 0, in, 0, pos, 512);
+            if (pos == 512 * 10) proc.looper().post (0, rs::LoopTrack::Tap);
+            proc.processBlock (buf, midi);
+            if ((pos / 512) % 3 == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (33);
+        }
+        snap ("ui_play.png");
+
         // also check the editor survives a resize and every preset switch
         ed->setSize (ReedstormContent::designW / 2, ReedstormContent::designH / 2);
         for (int i = 0; i < proc.getNumPrograms(); ++i) proc.setCurrentProgram (i);

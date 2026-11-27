@@ -122,8 +122,99 @@ rs::RackParams ReedstormProcessor::snapshot() const
     p.cloud.spray = get ("cld_spray"); p.cloud.pitch = get ("cld_pitch"); p.cloud.reverse = get ("cld_reverse");
     p.cloud.width = get ("cld_width"); p.cloud.mix = get ("cld_mix");
     p.outWidth = get ("out_width"); p.outGain = get ("out_gain");
+    applyPerformMacros (p);
     p.instrument = i ("tuner_inst"); p.tunerRef = get ("tuner_ref");
     return p;
+}
+
+/** The PLAY page: five macros that bend whatever World (preset) is loaded.
+    All at their neutral positions (morph 0, chaos 0, space 0.5, tone 0, harmony "World") change nothing. */
+void ReedstormProcessor::applyPerformMacros (rs::RackParams& p) const
+{
+    auto clamp01 = [] (float v) { return juce::jlimit (0.0f, 1.0f, v); };
+    const float morph = get ("perf_morph"), chaos = get ("perf_chaos"), space = get ("perf_space"), tone = get ("perf_tone");
+    const int harm = (int) std::lround (get ("perf_harm"));
+
+    // TRANSFORM x: sax -> synth (the Morph Gen zones take over, held notes start to bloom)
+    if (morph > 0.02f)
+    {
+        const bool was = p.gen.on;
+        p.gen.on = true;
+        p.gen.morph = std::max (was ? p.gen.morph : 0.0f, morph * 0.95f);
+        p.gen.bloom = std::max (was ? p.gen.bloom : 0.0f, clamp01 ((morph - 0.4f) * 1.3f));
+    }
+
+    // TRANSFORM y: clean -> chaos (silly gremlins first, then harsh ones, fuzz, then glitches)
+    if (chaos > 0.02f)
+    {
+        const bool was = p.grm.on;
+        p.grm.on = true;
+        p.grm.chance = std::max (was ? p.grm.chance : 0.0f, 0.3f + 0.7f * chaos);
+        p.grm.swarm = std::max (was ? p.grm.swarm : 0.0f, chaos * 0.8f);
+        p.grm.harsh = std::max (was ? p.grm.harsh : 0.0f, chaos * chaos);
+        p.grm.dirt = std::max (was ? p.grm.dirt : 0.0f, chaos * chaos * 0.8f);
+        p.grm.level = std::max (was ? p.grm.level : 0.0f, 0.25f + 0.5f * chaos);
+        if (chaos > 0.5f)
+        {
+            const float c = (chaos - 0.5f) * 2.0f;
+            if (! p.drvOn) { p.drvOn = true; p.drvType = 1; p.drvDrive = c * 0.6f; p.drvMix = c; p.drvTone = 0.5f; p.drvChar = 0.3f; }
+            else p.drvDrive = std::min (1.0f, p.drvDrive + c * 0.3f);
+        }
+        if (chaos > 0.75f)
+        {
+            const bool brpWas = p.brp.on;
+            p.brp.on = true;
+            if (! brpWas) { p.brp.mode = 1; p.brp.grid = 2; p.brp.pitch = -1.0f; p.brp.chance = 0.0f; p.brp.mix = 1.0f; p.brp.decay = 0.88f; }
+            p.brp.chance = std::max (p.brp.chance, (chaos - 0.75f) * 2.4f);
+        }
+    }
+
+    // SPACE: below the middle dries the World out, above it adds room, echo, then shimmer
+    if (space < 0.5f)
+    {
+        const float k = space * 2.0f;
+        p.revMix *= k; p.dlyMix *= k; p.spring.mix *= k;
+    }
+    else if (space > 0.5f)
+    {
+        const float e = (space - 0.5f) * 2.0f;
+        if (! p.revOn) { p.revOn = true; p.revMix = 0.0f; p.revDamp = 0.35f; p.revPre = 25.0f; }
+        p.revMix = std::max (p.revMix, e * 0.75f);
+        p.revSize = std::max (p.revSize, 0.5f + 0.5f * e);
+        p.revDecay = std::max (p.revDecay, 1.5f + 10.0f * e * e);
+        p.revShimmer = std::max (p.revShimmer, clamp01 ((e - 0.6f) * 1.6f));
+        if (e > 0.3f)
+        {
+            if (! p.dlyOn) { p.dlyOn = true; p.dlySync = 6; p.dlyFb = 0.4f; p.dlyDuck = 0.5f; p.dlyMix = 0.0f; p.dlyTone = 3500.0f; }
+            p.dlyMix = std::max (p.dlyMix, (e - 0.3f) * 0.4f);
+        }
+    }
+
+    // TONE: dark <-> bright
+    if (std::abs (tone) > 0.01f)
+    {
+        p.eqOn = true;
+        p.eqAir = juce::jlimit (-12.0f, 12.0f, p.eqAir + tone * 8.0f);
+        p.eqBody = juce::jlimit (-12.0f, 12.0f, p.eqBody - tone * 3.0f);
+        if (tone > 0) p.eqLowCut = std::max (p.eqLowCut, 40.0f + tone * 140.0f);
+    }
+
+    // HARMONY style
+    if (harm == 1) p.harOn = false;
+    else if (harm >= 2)
+    {
+        p.harOn = true; p.harSpread = 0.6f;
+        switch (harm)
+        {
+            case 2:  p.harMode = 0; p.harInt1 = 2; p.harLvl1 = 0.6f; p.harLvl2 = 0.0f; break;
+            case 3:  p.harMode = 0; p.harInt1 = 2; p.harInt2 = 4; p.harLvl1 = 0.55f; p.harLvl2 = 0.45f; break;
+            case 4:  p.harMode = 1; p.harInt1 = -12; p.harInt2 = 12; p.harLvl1 = 0.6f; p.harLvl2 = 0.4f; break;
+            default: p.harMode = 1; p.harInt1 = 7; p.harLvl1 = 0.6f; p.harLvl2 = 0.0f; break;
+        }
+    }
+
+    // the big FREEZE button works whatever the World
+    if (p.frz.hold && ! p.frz.on) { p.frz.on = true; p.frz.mode = 0; p.frz.level = 0.85f; p.frz.width = 0.9f; }
 }
 
 void ReedstormProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -195,7 +286,7 @@ void ReedstormProcessor::loadPreset (int index)
         if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p))
         {
             const auto id = rp->getParameterID();
-            if (id.startsWith ("tuner_") || id.startsWith ("loop") || id == "frz_hold" || id == "brp_hold" || id == "in_gain" || id == "out_gain") continue;
+            if (id.startsWith ("tuner_") || id.startsWith ("loop") || id.startsWith ("perf_") || id == "frz_hold" || id == "brp_hold" || id == "in_gain" || id == "out_gain") continue;
             rp->setValueNotifyingHost (rp->getDefaultValue());
         }
 
