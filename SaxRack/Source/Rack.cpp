@@ -21,7 +21,7 @@ void Rack::prepare (double sampleRate)
     sr = sampleRate;
     tracker.prepare (sr);
 
-    for (auto* f : { &dynFade, &octFade, &synFade, &wahFade, &drvFade, &eqFade, &harFade, &modFade, &dlyFade, &revFade, &genFade, &grmFade })
+    for (auto* f : { &dynFade, &octFade, &synFade, &wahFade, &drvFade, &eqFade, &harFade, &modFade, &dlyFade, &revFade, &genFade, &grmFade, &whmFade, &rngFade, &frzFade, &gatFade })
         f->prepare (sr);
 
     gateEnv.setup (0.3f, 40.0f, sr);
@@ -61,6 +61,10 @@ void Rack::prepare (double sampleRate)
 
     generator.prepare (sr);
     gremlins.prepare (sr);
+    whammy.prepare (sr);
+    ringMod.prepare (sr);
+    freeze.prepare (sr);
+    slicer.prepare (sr);
     looper.prepare (sr);
     inGainSm.reset (sr, 0.03);
     outGainSm.reset (sr, 0.03);
@@ -95,6 +99,8 @@ void Rack::reset()
     dlySmooth = 0;
     generator.reset();
     gremlins.reset();
+    whammy.reset();
+    freeze.reset();
 }
 
 void Rack::updateFilters (const RackParams& p)
@@ -132,8 +138,9 @@ float Rack::harmonyShift (int interval, const RackParams& p) const
 }
 
 void Rack::process (const float* inL, const float* inR, float* outL, float* outR, int numSamples,
-                    const RackParams& p, double bpm)
+                    const RackParams& p, double bpm, double hostBeat)
 {
+    if (hostBeat >= 0.0) beatPos = hostBeat;    // follow the host transport while it plays
     inGainSm.setTargetValue (dbToGain (p.inGain));
     outGainSm.setTargetValue (dbToGain (p.outGain));
     widthSm.setTargetValue (p.outWidth);
@@ -146,6 +153,7 @@ void Rack::process (const float* inL, const float* inR, float* outL, float* outR
             mono[i] = inR != nullptr ? 0.5f * (inL[pos + i] + inR[pos + i]) : inL[pos + i];
 
         processChunk (n, p, bpm);
+        beatPos += (double) n * bpm / (60.0 * sr);
 
         for (int i = 0; i < n; ++i) { outL[pos + i] = L[i]; outR[pos + i] = R[i]; }
     }
@@ -398,6 +406,10 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
         }
     }
 
+    // ---- ring modulator -------------------------------------------------------------------
+    rngFade.set (p.ring.on);
+    if (rngFade.active()) ringMod.process (mono, n, voiced, trackedMidi, p.ring, rngFade);
+
     // ---- EQ ------------------------------------------------------------------------------
     eqFade.set (p.eqOn);
     if (eqFade.active())
@@ -416,6 +428,10 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
     const float concertMidi = trackedMidi - refOffset;
     if (genFade.active())
         generator.processMorph (mono, n, voiced, trackedMidi, p.gen, genFade);
+
+    // ---- whammy: bends everything above (sax, morph voice) ---------------------------------
+    whmFade.set (p.whm.on);
+    if (whmFade.active()) whammy.process (mono, n, voiced, trackedMidi, p.whm, whmFade);
 
     // ---- harmonizer: mono -> stereo ----------------------------------------------------
     std::copy (mono, mono + n, L);
@@ -466,6 +482,10 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
     gremlins.pollManual (voiced, midiToHz (trackedMidi), p.grm);
     if (grmFade.active() || p.grm.on)
         gremlins.process (rawIn, L, R, n, voiced, midiToHz (trackedMidi), p.grm, grmFade);
+
+    // ---- freeze: granular infinite sustain -----------------------------------------------
+    frzFade.set (p.frz.on);
+    freeze.process (mono, L, R, n, voiced, trackedMidi, p.frz, frzFade);
 
     // ---- modulation: chorus / flanger / phaser / rotary --------------------------------
     modFade.set (p.modOn);
@@ -540,6 +560,10 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
             }
         }
     }
+
+    // ---- slicer: tempo gate ----------------------------------------------------------------
+    gatFade.set (p.gate.on);
+    if (gatFade.active()) slicer.process (L, R, n, beatPos, bpm / (60.0 * sr), p.gate, gatFade);
 
     // ---- delay: tempo-synced tape echo with ping-pong and ducking -------------------------
     dlyFade.set (p.dlyOn);

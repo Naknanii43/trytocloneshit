@@ -11,6 +11,7 @@
 #include "Generator.h"
 #include "Looper.h"
 #include "Gremlins.h"
+#include "Mangle.h"
 #include <juce_dsp/juce_dsp.h>
 #include <atomic>
 
@@ -31,6 +32,10 @@ struct RackParams
     bool revOn = false; float revPre = 20, revSize = 0.6f, revDecay = 2.5f, revDamp = 0.4f, revShimmer = 0, revMix = 0.3f;
     GenParams gen;
     GremlinParams grm;
+    WhammyParams whm;
+    RingParams ring;
+    FreezeParams frz;
+    SlicerParams gate;
     LoopParams loop;
     float outWidth = 1, outGain = 0;
     int instrument = 2; float tunerRef = 440;
@@ -54,11 +59,15 @@ public:
     void reset();
     /** inR may be null for a mono input. outL/outR may alias inL/inR. */
     void process (const float* inL, const float* inR, float* outL, float* outR, int numSamples,
-                  const RackParams& p, double bpm);
+                  const RackParams& p, double bpm, double hostBeat = -1.0);
 
     RackMeters meters;
     Generator generator;
     Gremlins gremlins;
+    Whammy whammy;
+    RingMod ringMod;
+    Freeze freeze;
+    Slicer slicer;
     LoopStation looper;
 
     /** Harmony interval (scale steps or semitones) -> semitones for the current note. Public for tests. */
@@ -102,7 +111,8 @@ private:
     Fade revFade; DelayLine revPre; DelayLine revAp[4]; float revApLen[4] {}; DelayLine revLine[8];
     float revLen[8] {}; OnePole revDamp[8]; float revModPhase = 0; PitchShifter shimmer; float shimmerFb = 0; OnePole shimHp;
     // generator
-    Fade genFade, grmFade;
+    Fade genFade, grmFade, whmFade, rngFade, frzFade, gatFade;
+    double beatPos = 0;
     float rawIn[chunk] {};
     // output
     float limGain = 1.0f;

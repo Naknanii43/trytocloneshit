@@ -2,6 +2,7 @@
 #include "PluginProcessor.h"
 #include "Widgets.h"
 #include "GenLoopUI.h"
+#include "MangleUI.h"
 
 /** All UI at a fixed design size; the editor scales it to whatever size the window is. */
 class ReedstormContent : public juce::Component, private juce::Timer
@@ -51,7 +52,10 @@ private:
     rs::ui::LoopStationPanel* loopPanel = nullptr;
     rs::ui::GremlinsPanel* grmPanel = nullptr;
     std::vector<int> panelPage;
-    juce::TextButton tabs[3];
+    juce::TextButton tabs[4];
+    rs::ui::WhammyPanel* whmPanel = nullptr;
+    rs::ui::FreezePanel* frzPanel = nullptr;
+    rs::ui::SlicerPanel* gatPanel = nullptr;
     int page = 0;
 
 public:

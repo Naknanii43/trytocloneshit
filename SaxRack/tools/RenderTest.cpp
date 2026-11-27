@@ -495,7 +495,7 @@ int main (int argc, char** argv)
             if (peak > 0.99f) fail (juce::String (presets[i].name) + " clips");
 
             if (demos && sr == 48000.0)
-                writeWav (outDir.getChildFile (juce::String (i + 1).paddedLeft ('0', 2) + "_" + juce::String (presets[i].name).replaceCharacters (" /", "__") + ".wav"), out, sr);
+                writeWav (outDir.getChildFile (juce::String (i + 1).paddedLeft ('0', 2) + "_" + juce::String (presets[i].name).replace ("&", "and").replaceCharacters (" /", "__") + ".wav"), out, sr);
         }
     }
     std::printf ("Worst CPU: %.2f%% of one core in realtime\n", worstRt * 100.0);
@@ -534,7 +534,7 @@ int main (int argc, char** argv)
             if (blk == 200) ls.post (1, rs::LoopTrack::Tap);      // track 2: locks to 2x
             if (blk == 300) ls.post (1, rs::LoopTrack::Tap);
             if (blk == 420) ls.post (2, rs::LoopTrack::Tap);      // track 3: recording when we look
-            if (blk == 495) red->setPage (1);
+            if (blk == 495) red->setPage (2);
             proc.processBlock (buf, midi);
             if (blk % 3 == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (33);
         }
@@ -550,8 +550,24 @@ int main (int argc, char** argv)
         };
         std::printf ("\n");
         snap ("ui_generate.png");
-        red->setPage (2); snap ("ui_loops.png");
+        red->setPage (3); snap ("ui_loops.png");
         red->setPage (0); snap ("ui.png");
+
+        // MANGLE page with all four effects running
+        for (auto* id : { "whm_on", "rng_on", "frz_on", "gat_on" }) proc.apvts.getParameter (id)->setValueNotifyingHost (1.0f);
+        proc.apvts.getParameter ("whm_mode")->setValueNotifyingHost (proc.apvts.getParameter ("whm_mode")->convertTo0to1 (1));
+        proc.apvts.getParameter ("rng_mix")->setValueNotifyingHost (0.3f);
+        proc.apvts.getParameter ("frz_mode")->setValueNotifyingHost (1.0f);
+        red->setPage (1);
+        for (int pos = 0; pos < (int) (sr * 3.0); pos += 512)
+        {
+            juce::AudioBuffer<float> buf (2, 512);
+            buf.copyFrom (0, 0, in, 0, pos, 512);
+            buf.copyFrom (1, 0, in, 0, pos, 512);
+            proc.processBlock (buf, midi);
+            if ((pos / 512) % 3 == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (33);
+        }
+        snap ("ui_mangle.png");
 
         // also check the editor survives a resize and every preset switch
         ed->setSize (ReedstormContent::designW / 2, ReedstormContent::designH / 2);

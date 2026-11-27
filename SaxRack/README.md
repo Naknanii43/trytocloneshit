@@ -1,6 +1,6 @@
 # Reedstorm: Saxophone Effects Rack (VST3 / AU / Standalone)
 
-A 13-module effects rack built specifically for **saxophone**, with a 4-track loop station. It listens to your horn with a
+A 17-module effects rack built specifically for **saxophone**, with a 4-track loop station. It listens to your horn with a
 pitch tracker, so it can show a **tuner** in your instrument's written key, add **in-key
 harmonies**, drive a **synth voice that follows your playing**, keep the octaver locked to your note, and
 **morph your sax into a different synth depending on which frequency you play**, with held notes
@@ -8,9 +8,9 @@ blooming into **generative patterns**. **Gremlins** listen for *any* sound (a no
 and answer with peculiar creatures, from cartoon boings to crushed industrial clanks. A **4-track loop station**
 at the end of the chain lets you layer it all live.
 
-| Morph + Gremlins | Loop Station |
-|---|---|
-| ![Morph + Gremlins](docs/ui_generate.png) | ![Loop Station](docs/ui_loops.png) |
+| Mangle | Morph + Gremlins | Loop Station |
+|---|---|---|
+| ![Mangle](docs/ui_mangle.png) | ![Morph + Gremlins](docs/ui_generate.png) | ![Loop Station](docs/ui_loops.png) |
 
 ![Reedstorm](docs/ui.png)
 
@@ -26,7 +26,7 @@ Start with the **[▶ dry phrase](demos/00_Dry_Sax.mp3)**.
 | [Blues Shouter Growl](demos/08_Blues_Shouter_Growl.mp3) | [Sub Bass Sax](demos/09_Sub_Bass_Sax.mp3) | [Synth Horn Lead](demos/10_Synth_Horn_Lead.mp3) |
 | [Square Wave Sax](demos/11_Square_Wave_Sax.mp3) | [Horn Section](demos/12_Horn_Section.mp3) | [Octave Unison](demos/13_Octave_Unison.mp3) |
 | [Ethio Minor Section](demos/14_Ethio_Minor_Section.mp3) | [Ambient Shimmer](demos/15_Ambient_Shimmer.mp3) | [Dub Echo Chamber](demos/16_Dub_Echo_Chamber.mp3) |
-| [Jet Flanger Space](demos/17_Jet_Flanger_Space.mp3) | [Rotary Club](demos/27_Rotary_Club.mp3) | [Lo-Fi Tape Memory](demos/28_Lo-Fi_Tape_Memory.mp3) |
+| [Jet Flanger Space](demos/17_Jet_Flanger_Space.mp3) | [Rotary Club](demos/33_Rotary_Club.mp3) | [Lo-Fi Tape Memory](demos/34_Lo-Fi_Tape_Memory.mp3) |
 
 **Morph Gen** (the sax changes into a different synth in each frequency zone, and held notes bloom):
 [▶ Zone Morph](demos/18_Zone_Morph.mp3) ·
@@ -41,13 +41,23 @@ Start with the **[▶ dry phrase](demos/00_Dry_Sax.mp3)**.
 [▶ Cartoon Sax](demos/25_Cartoon_Sax.mp3) ·
 [▶ Broken Robot](demos/26_Broken_Robot.mp3)
 
+**Mangle** (whammy, ring mod, freeze, slicer):
+[▶ Whammy Dive Bomb](demos/27_Whammy_Dive_Bomb.mp3) ·
+[▶ Jazz Scoops](demos/28_Jazz_Scoops.mp3) ·
+[▶ Ring Mod Robot](demos/29_Ring_Mod_Robot.mp3) ·
+[▶ Bell Ring](demos/30_Bell_Ring.mp3) ·
+[▶ Freeze & Solo](demos/31_Freeze_and_Solo.mp3) ·
+[▶ Trance Gate Sax](demos/32_Trance_Gate_Sax.mp3)
+
 (The input is a synthesized saxophone, so expect the effects to sound better on a real horn.)
 
 ## The rack
 
 ```
-IN ─ DYNAMICS ─ OCTAVER ─ SYNTH ─ ENV FILTER ─ DRIVE ─ EQ ─ MORPH GEN ─┬─ GREMLINS ─ HARMONY ─ MODULATION ─ DELAY ─ REVERB ─ LOOP STATION ─ OUT
-     └──────────────── mono core (one voice) ─────────────────────┘  └──────────────────────────── stereo ─────────────────────────────┘
+IN ─ DYNAMICS ─ OCTAVER ─ SYNTH ─ ENV FILTER ─ DRIVE ─ RING MOD ─ EQ ─ MORPH GEN ─ WHAMMY ─┐
+     └──────────────────────────── mono core (one voice) ────────────────────────────┘ │
+   ┌──────────────────────────────────────────────────────────────────────────────────────┘
+   └─ GREMLINS ─ FREEZE ─ HARMONY ─ MODULATION ─ SLICER ─ DELAY ─ REVERB ─ LOOP STATION ─ OUT   (stereo)
 ```
 
 Click any module in the chain strip (or its power LED) to switch it on or off. Modules crossfade
@@ -67,7 +77,11 @@ in and out, so switching never clicks.
 | **Reverb** | 8-line feedback-delay-network reverb with pre-delay, size, decay, damping and **Shimmer** (an octave-up feedback path for ambient pads) |
 
 | **Morph Gen** | See below. Your frequency picks the synth, the sax morphs into it, and held notes bloom generative patterns |
+| **Ring Mod** | Multiplies your sound by a carrier. **Tracked** mode sets the carrier to your note × RATIO (whole ratios ring like bells, odd ones clang like metal). **Fixed** mode uses a fixed frequency for robot and Dalek voices. Sine, square or triangle carrier, with a slow up/down sweep |
+| **Whammy** | Pitch bend up to ±24 semitones on everything above it in the chain. **Pedal** (map PEDAL to an expression pedal), **LFO** (dive-bombs and rises), **Scoop** (every new note slides in from below or above, like a bebop scoop or a fall) and **Random** (stepped jumps). Uses the same in-tune pitch shifter as Harmony |
 | **Gremlins** | Any sound at the input spawns silly or harsh creatures. See below |
+| **Freeze** | Granular infinite sustain: a 0.4 s slice of your sound plays back as an endless, shimmering pad made of overlapping grains. **Manual**: press FREEZE, press again to release; STACK adds layers instead of replacing. **Auto**: every steadily held new note freezes itself and stacks, up to 3 layers. PITCH (−1 oct, unison, +5th, +1 oct), DECAY (0 = forever), ATTACK, WIDTH |
+| **Slicer** | Tempo-synced gate that follows the host transport. Patterns: Trance, Offbeat, Stutter, Half-time, Chop, Morse and Random (a new pattern every bar). Steps of 1/8 to 1/32 including triplets, DEPTH, SMOOTH (hard chop to soft pulse), SWING and PING-PONG (alternating left and right) |
 | **Loop Station** | 4 tracks that record the whole processed rack, locked to the first loop. See below |
 
 ### Morph Gen: a different synth for each frequency
@@ -91,7 +105,7 @@ Each track has one footswitch button that goes **REC**, then **PLAY** (the loop 
 - Each track can hold up to 25 s at 48 kHz.
 - For hands-free use, these are host parameters you can MIDI-learn to a foot controller: *Track N Rec/Play/Dub*, *Stop*, *Undo* and *Clear*, plus *Loop Stop All* and *Loop Clear All*.
 
-The window has three tabs: **RACK**, **MORPH + GREMLINS** and **LOOP STATION**. The signal chain strip stays visible on every tab, so you can switch any module on or off from anywhere.
+The window has four tabs: **RACK**, **MANGLE**, **MORPH + GREMLINS** and **LOOP STATION**. The signal chain strip stays visible on every tab, so you can switch any module on or off from anywhere.
 
 **Header:** factory preset browser, **tuner**, **pitch trace** (a scrolling piano roll of what you play; with Harmony on it also draws the harmony voices in green), input gain, output gain, stereo width, and IN / L / R meters. A safety limiter on the output stops overs.
 
@@ -104,7 +118,7 @@ Pick your horn in **Instrument** (Concert C, Soprano B♭, Alto E♭, Tenor B♭
 - Use the Delay's *Duck* control: a lot of echo between phrases while staying clean while you play.
 - Most knobs show their value while hovered. Double-click any knob to reset it.
 
-## Factory presets (28)
+## Factory presets (34)
 **Basics:** Init, Studio Polish, Smoky Jazz Club, Bright Pop Lead ·
 **Funk:** Funk Envelope Wah, Robot Talk Wah ·
 **Heavy:** Octave Fuzz Monster, Blues Shouter Growl, Sub Bass Sax ·
@@ -113,6 +127,7 @@ Pick your horn in **Instrument** (Concert C, Soprano B♭, Alto E♭, Tenor B♭
 **Space:** Ambient Shimmer, Dub Echo Chamber, Jet Flanger Space ·
 **Morph:** Zone Morph, Bloom Bells, Choir Ascension, Swarm Machine, Generative Ambient ·
 **Gremlins:** Gremlin Party, Industrial Factory, Cartoon Sax, Broken Robot ·
+**Mangle:** Whammy Dive Bomb, Jazz Scoops, Ring Mod Robot, Bell Ring, Freeze & Solo, Trance Gate Sax ·
 **Vintage:** Rotary Club, Lo-Fi Tape Memory
 
 Each preset is built around one main effect, so presets sound clearly different both within a bank and across banks. This is checked with a similarity measure on the demo renders that compares timbre over time, harmony (pitch classes), modulation and roughness, stereo image and reverb tail. Presets are level-matched and also appear in your DAW's program list. Your input gain, output
@@ -157,6 +172,8 @@ Source/Generator.h       Morph Gen: frequency zones, morph voice, generative blo
 Source/Voice.h           the six Morph Gen synth sounds
 Source/Looper.h          4-track loop station with master-loop lock (allocation-free, spike-free undo)
 Source/Gremlins.h        onset detector + 13 creature sounds + DIRT bus
+Source/Mangle.h          Whammy, Ring Mod, Freeze (granular), Slicer (tempo gate)
+Source/MangleUI.h        Mangle page panels (bend readout, FREEZE button, step grid)
 Source/GenLoopUI.h       zone map, Morph Gen, Gremlins terrarium and Loop Station panels
 Source/PitchTracker.h    YIN pitch tracker (decimated, cheap enough for the audio thread)
 Source/DSP.h             SVF, biquad, delay line, pitch-synchronous pitch shifter, helpers

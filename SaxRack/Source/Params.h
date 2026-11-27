@@ -17,6 +17,13 @@ inline const juce::StringArray genSounds     { "Bells", "Pad", "Bowed", "Drone",
 inline const juce::StringArray genPatterns   { "Arp Up", "Random Walk", "Chord Swell", "Cascade" };
 inline const juce::StringArray genRates      { "1/4", "1/8", "1/8 trip", "1/16", "1/16 trip", "1/32" };
 inline const juce::StringArray grmPalettes   { "All Creatures", "Cartoon", "Sci-Fi", "Voice Mangler", "Scrapyard" };
+inline const juce::StringArray whammyModes   { "Pedal", "LFO", "Scoop", "Random" };
+inline const juce::StringArray ringModes     { "Tracked", "Fixed" };
+inline const juce::StringArray ringWaves     { "Sine", "Square", "Triangle" };
+inline const juce::StringArray freezeModes   { "Manual", "Auto" };
+inline const juce::StringArray freezePitches { "-1 oct", "Unison", "+5th", "+1 oct" };
+inline const juce::StringArray slicerPatterns { "Trance", "Offbeat", "Stutter", "Half-time", "Chop", "Morse", "Random" };
+inline const juce::StringArray slicerRates   { "1/8", "1/16", "1/32", "1/8 trip", "1/16 trip" };
 inline const juce::StringArray instruments   { "Concert C", "Soprano Bb", "Alto Eb", "Tenor Bb", "Bari Eb" };
 
 /** Semitones from sounding (concert) pitch to the written note, per instrument. */
@@ -185,6 +192,44 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     pct ("gen_density", "Bloom Density", 0.75f);
     in ("gen_range", "Bloom Range", 1, 3, 2);
     fl ("gen_hold", "Trigger Hold", skewed (20.0f, 800.0f, 150.0f), 120.0f, "ms");
+
+    // Mangle: whammy
+    bl ("whm_on", "Whammy On", false);
+    ch ("whm_mode", "Whammy Mode", whammyModes, 0);
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "whm_amount", v }, "Whammy Amount",
+        NormalisableRange<float> (-24.0f, 24.0f, 0.0f), 12.0f,
+        AudioParameterFloatAttributes().withStringFromValueFunction ([] (float x, int) { return (x > 0 ? "+" : "") + String (x, 1) + " st"; })));
+    pct ("whm_pedal", "Whammy Pedal", 0.0f);
+    fl ("whm_rate", "Whammy Rate", skewed (0.05f, 10.0f, 1.0f), 0.5f, "Hz");
+    fl ("whm_glide", "Whammy Glide", skewed (0.0f, 2000.0f, 150.0f), 80.0f, "ms");
+    pct ("whm_mix", "Whammy Mix", 1.0f);
+    // Mangle: ring mod
+    bl ("rng_on", "Ring Mod On", false);
+    ch ("rng_mode", "Ring Mode", ringModes, 0);
+    ch ("rng_wave", "Ring Wave", ringWaves, 0);
+    fl ("rng_freq", "Ring Frequency", skewed (20.0f, 5000.0f, 400.0f), 440.0f, "Hz");
+    fl ("rng_ratio", "Ring Ratio", skewed (0.25f, 4.0f, 1.0f), 1.5f, "x", 2);
+    fl ("rng_rate", "Ring Sweep Rate", skewed (0.02f, 10.0f, 0.5f), 0.3f, "Hz");
+    pct ("rng_sweep", "Ring Sweep", 0.0f);
+    pct ("rng_mix", "Ring Mix", 0.7f);
+    // Mangle: freeze
+    bl ("frz_on", "Freeze On", false);
+    bl ("frz_hold", "Freeze", false);
+    ch ("frz_mode", "Freeze Mode", freezeModes, 0);
+    ch ("frz_pitch", "Freeze Pitch", freezePitches, 1);
+    bl ("frz_stack", "Freeze Stack", false);
+    pct ("frz_decay", "Freeze Decay", 0.0f);
+    fl ("frz_attack", "Freeze Attack", skewed (10.0f, 3000.0f, 300.0f), 300.0f, "ms");
+    pct ("frz_width", "Freeze Width", 0.8f);
+    fl ("frz_level", "Freeze Level", { 0.0f, 1.5f }, 0.8f, "%");
+    // Mangle: slicer
+    bl ("gat_on", "Slicer On", false);
+    ch ("gat_pattern", "Slicer Pattern", slicerPatterns, 0);
+    ch ("gat_rate", "Slicer Rate", slicerRates, 1);
+    pct ("gat_depth", "Slicer Depth", 1.0f);
+    fl ("gat_smooth", "Slicer Smooth", skewed (1.0f, 60.0f, 8.0f), 5.0f, "ms");
+    pct ("gat_swing", "Slicer Swing", 0.0f);
+    bl ("gat_pp", "Slicer Ping-Pong", false);
 
     // Gremlins
     bl ("grm_on", "Gremlins On", false);

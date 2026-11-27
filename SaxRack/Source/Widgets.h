@@ -651,7 +651,7 @@ public:
     {
         auto r = getLocalBounds().toFloat();
         layout (r);
-        g.setFont (font (11.0f, true).withExtraKerningFactor (0.1f));
+        g.setFont (font (10.5f, true).withExtraKerningFactor (0.06f));
 
         auto cap = [&] (juce::Rectangle<float> b, const juce::String& t)
         {
@@ -695,12 +695,12 @@ public:
                 g.setColour (col::dim);
             }
             g.drawText (nodes[i].label, b, juce::Justification::centred);
-            if (i == 6)   // stereo split marker
+            if (nodes[i].label == "WHAM")   // stereo split marker
             {
                 g.setColour (col::dim.withAlpha (0.7f));
                 g.setFont (font (9.0f));
                 g.drawText ("mono | stereo", juce::Rectangle<float> (b.getRight() - 10, b.getBottom() + 0, 80, 10), juce::Justification::centredLeft);
-                g.setFont (font (11.0f, true).withExtraKerningFactor (0.1f));
+                g.setFont (font (10.5f, true).withExtraKerningFactor (0.06f));
             }
         }
         arrow (prevRight, outBox.getX(), outBox.getCentreY(), true);
@@ -741,7 +741,7 @@ private:
         r = r.reduced (4, 6);
         const float h = 22.0f;
         const float y = r.getY();
-        const float capW = 44.0f, gap = 20.0f;
+        const float capW = 40.0f, gap = 13.0f;
         const float n = (float) nodes.size();
         const float w = (r.getWidth() - 2 * capW - (n + 1) * gap) / n;
         inBox = { r.getX(), y, capW, h };

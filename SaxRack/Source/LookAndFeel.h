@@ -29,6 +29,10 @@ namespace col
     const juce::Colour gen    { 0xff3ee8ff };
     const juce::Colour loop   { 0xffc8f03c };
     const juce::Colour grm    { 0xffff4fd8 };
+    const juce::Colour whm    { 0xffffb02e };
+    const juce::Colour ring   { 0xffdfe6ee };
+    const juce::Colour frz    { 0xff7fe3ff };
+    const juce::Colour gate   { 0xffff6d6d };
     const juce::Colour zone[4] { juce::Colour (0xff6a7dff), juce::Colour (0xff3ee8ff), juce::Colour (0xffffc94a), juce::Colour (0xffff5fa2) };
 }
 

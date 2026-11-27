@@ -45,6 +45,7 @@ public:
     rs::RackMeters& meters() { return rack.meters; }
     rs::LoopStation& looper() { return rack.looper; }
     rs::Gremlins& gremlins() { return rack.gremlins; }
+    rs::Rack& engine() { return rack; }
     rs::Generator& generator() { return rack.generator; }
 
 private:

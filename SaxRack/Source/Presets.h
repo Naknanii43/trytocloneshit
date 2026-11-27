@@ -174,6 +174,33 @@ inline const std::vector<Preset>& factoryPresets()
             { "mod_on", 1 }, { "mod_type", 1 }, { "mod_rate", 0.3f }, { "mod_depth", 0.6f }, { "mod_fb", 0.7f }, { "mod_mix", 0.4f },
             { "dly_on", 1 }, { "dly_sync", 8 }, { "dly_fb", 0.4f }, { "dly_mix", 0.2f } } },
 
+        { "Whammy Dive Bomb", "Mangle", "Every phrase slowly dives an octave down and climbs back up, through crunchy fuzz. Metal sax.",
+          { { "comp_amt", 0.5f }, { "whm_on", 1 }, { "whm_mode", 1 }, { "whm_amount", -12 }, { "whm_rate", 0.22f }, { "whm_glide", 30 },
+            { "drv_on", 1 }, { "drv_type", 1 }, { "drv_drive", 0.55f }, { "drv_char", 0.2f }, { "drv_tone", 0.55f },
+            { "eq_lowcut", 70 }, { "rev_on", 1 }, { "rev_size", 0.35f }, { "rev_decay", 1.0f }, { "rev_mix", 0.15f } } },
+
+        { "Jazz Scoops", "Mangle", "Every note slides up into pitch from a minor third below, like an exaggerated bebop scoop. Warm and close.",
+          { { "comp_amt", 0.35f }, { "whm_on", 1 }, { "whm_mode", 2 }, { "whm_amount", -3 }, { "whm_glide", 140 },
+            { "eq_body", 3 }, { "eq_air", -3 }, { "rev_on", 1 }, { "rev_size", 0.3f }, { "rev_decay", 0.9f }, { "rev_damp", 0.6f }, { "rev_mix", 0.2f } } },
+
+        { "Ring Mod Robot", "Mangle", "A fixed low carrier turns your sax into a metallic, monotone robot voice, with a short slapback.",
+          { { "comp_amt", 0.5f }, { "rng_on", 1 }, { "rng_mode", 1 }, { "rng_freq", 115 }, { "rng_wave", 0 }, { "rng_mix", 0.95f },
+            { "eq_lowcut", 140 }, { "eq_mid", 4 }, { "eq_midf", 1800 },
+            { "dly_on", 1 }, { "dly_sync", 0 }, { "dly_time", 70 }, { "dly_fb", 0.2f }, { "dly_mix", 0.25f }, { "dly_pp", 0 } } },
+
+        { "Bell Ring", "Mangle", "A pitch-tracked ring modulator a fifth above your note: every phrase rings like struck bells in a big hall.",
+          { { "rng_on", 1 }, { "rng_mode", 0 }, { "rng_ratio", 1.5f }, { "rng_wave", 0 }, { "rng_sweep", 0.05f }, { "rng_rate", 0.2f }, { "rng_mix", 0.6f },
+            { "eq_air", 2 }, { "rev_on", 1 }, { "rev_size", 0.9f }, { "rev_decay", 4.0f }, { "rev_damp", 0.1f }, { "rev_mix", 0.35f } } },
+
+        { "Freeze & Solo", "Mangle", "Auto Freeze: hold a note and it becomes a pad under you. Each new held note stacks on top, then slowly fades. Solo over yourself.",
+          { { "comp_amt", 0.4f }, { "frz_on", 1 }, { "frz_mode", 1 }, { "frz_decay", 0.35f }, { "frz_attack", 600 }, { "frz_width", 1.0f }, { "frz_level", 0.9f },
+            { "rev_on", 1 }, { "rev_size", 0.8f }, { "rev_decay", 3.5f }, { "rev_mix", 0.3f } } },
+
+        { "Trance Gate Sax", "Mangle", "Long notes get chopped into a 16th-note trance pattern, with dotted echoes and a wide hall. Hold notes and let it pump.",
+          { { "comp_amt", 0.5f }, { "gat_on", 1 }, { "gat_pattern", 0 }, { "gat_rate", 1 }, { "gat_depth", 1.0f }, { "gat_smooth", 3 },
+            { "dly_on", 1 }, { "dly_sync", 6 }, { "dly_fb", 0.4f }, { "dly_mix", 0.3f },
+            { "rev_on", 1 }, { "rev_size", 0.8f }, { "rev_decay", 2.5f }, { "rev_mix", 0.28f }, { "out_width", 1.5f } } },
+
         { "Rotary Club", "Vintage", "A fast-spinning rotary speaker and warm tube grit, wide and organ-like. Organ-trio soul.",
           { { "comp_amt", 0.35f }, { "drv_on", 1 }, { "drv_type", 0 }, { "drv_drive", 0.35f }, { "drv_tone", 0.5f }, { "drv_level", -4 },
             { "eq_body", 2 },

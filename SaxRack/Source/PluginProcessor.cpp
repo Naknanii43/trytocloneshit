@@ -83,6 +83,15 @@ rs::RackParams ReedstormProcessor::snapshot() const
         tp.level = get (ids[0].c_str()); tp.pan = get (ids[1].c_str());
         tp.mute = get (ids[2].c_str()) > 0.5f; tp.reverse = get (ids[3].c_str()) > 0.5f; tp.half = get (ids[4].c_str()) > 0.5f;
     }
+    p.whm.on = b ("whm_on"); p.whm.mode = i ("whm_mode"); p.whm.amount = get ("whm_amount"); p.whm.pedal = get ("whm_pedal");
+    p.whm.rate = get ("whm_rate"); p.whm.glide = get ("whm_glide"); p.whm.mix = get ("whm_mix");
+    p.ring.on = b ("rng_on"); p.ring.mode = i ("rng_mode"); p.ring.wave = i ("rng_wave"); p.ring.freq = get ("rng_freq");
+    p.ring.ratio = get ("rng_ratio"); p.ring.rate = get ("rng_rate"); p.ring.sweep = get ("rng_sweep"); p.ring.mix = get ("rng_mix");
+    p.frz.on = b ("frz_on"); p.frz.hold = b ("frz_hold"); p.frz.mode = i ("frz_mode"); p.frz.pitch = i ("frz_pitch");
+    p.frz.stack = b ("frz_stack"); p.frz.decay = get ("frz_decay"); p.frz.attack = get ("frz_attack");
+    p.frz.width = get ("frz_width"); p.frz.level = get ("frz_level");
+    p.gate.on = b ("gat_on"); p.gate.pattern = i ("gat_pattern"); p.gate.rate = i ("gat_rate"); p.gate.depth = get ("gat_depth");
+    p.gate.smooth = get ("gat_smooth"); p.gate.swing = get ("gat_swing"); p.gate.pingPong = b ("gat_pp");
     p.outWidth = get ("out_width"); p.outGain = get ("out_gain");
     p.instrument = i ("tuner_inst"); p.tunerRef = get ("tuner_ref");
     return p;
@@ -96,10 +105,14 @@ void ReedstormProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     const int outCh = getTotalNumOutputChannels();
     if (n == 0 || outCh == 0) return;
 
-    double bpm = 120.0;
+    double bpm = 120.0, hostBeat = -1.0;
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
+        {
             if (auto b = pos->getBpm()) bpm = *b;
+            if (pos->getIsPlaying())
+                if (auto ppq = pos->getPpqPosition()) hostBeat = *ppq;
+        }
 
     // loop-station footswitch parameters (MIDI-learnable in the host): act on the rising edge
     static const rs::LoopTrack::Command cmds[4] = { rs::LoopTrack::Tap, rs::LoopTrack::Stop, rs::LoopTrack::Undo, rs::LoopTrack::Clear };
@@ -128,12 +141,12 @@ void ReedstormProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         for (int pos = 0; pos < n; pos += 256)
         {
             const int m = juce::jmin (256, n - pos);
-            rack.process (inL + pos, inR != nullptr ? inR + pos : nullptr, outL + pos, tmp, m, p, bpm);
+            rack.process (inL + pos, inR != nullptr ? inR + pos : nullptr, outL + pos, tmp, m, p, bpm, hostBeat >= 0 ? hostBeat + pos * bpm / (60.0 * getSampleRate()) : -1.0);
             for (int i = 0; i < m; ++i) outL[pos + i] = 0.5f * (outL[pos + i] + tmp[i]);
         }
         return;
     }
-    rack.process (inL, inR, outL, outR, n, snapshot(), bpm);
+    rack.process (inL, inR, outL, outR, n, snapshot(), bpm, hostBeat);
     for (int c = 2; c < outCh; ++c) buffer.clear (c, 0, n);
 }
 
@@ -153,7 +166,7 @@ void ReedstormProcessor::loadPreset (int index)
         if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p))
         {
             const auto id = rp->getParameterID();
-            if (id.startsWith ("tuner_") || id.startsWith ("loop") || id == "in_gain" || id == "out_gain") continue;
+            if (id.startsWith ("tuner_") || id.startsWith ("loop") || id == "frz_hold" || id == "in_gain" || id == "out_gain") continue;
             rp->setValueNotifyingHost (rp->getDefaultValue());
         }
 
