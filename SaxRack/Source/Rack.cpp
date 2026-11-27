@@ -148,6 +148,7 @@ void Rack::process (const float* inL, const float* inR, float* outL, float* outR
                     const RackParams& p, double bpm, double hostBeat)
 {
     if (hostBeat >= 0.0) beatPos = hostBeat;    // follow the host transport while it plays
+    bpm = juce::jlimit (20.0, 400.0, std::isfinite (bpm) ? bpm : 120.0);
     inGainSm.setTargetValue (dbToGain (p.inGain));
     outGainSm.setTargetValue (dbToGain (p.outGain));
     widthSm.setTargetValue (p.outWidth);
@@ -203,7 +204,7 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
         for (int i = 0; i < n; ++i)
         {
             const float x = mono[i];
-            const float gdb = gainToDb (gateEnv.process (x));
+            const float gdb = fastGainToDb (gateEnv.process (x));
             if (! gateOn) gateOpen = true;
             else if (gdb > p.gateThr) gateOpen = true;
             else if (gdb < p.gateThr - 5.0f) gateOpen = false;
@@ -213,11 +214,11 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
 
             const float r = std::abs (y);
             compEnv += (r > compEnv ? atk : rel) * (r - compEnv);
-            const float over = gainToDb (compEnv) - thr;
+            const float over = fastGainToDb (compEnv) - thr;
             float gr = 0;
             if (over > 3.0f) gr = over * slope;
             else if (over > -3.0f) gr = (over + 3.0f) * (over + 3.0f) / 12.0f * slope;
-            y *= dbToGain (makeup - gr);
+            y *= fastDbToGain (makeup - gr);
             maxGr = std::max (maxGr, gr * (p.compAmt > 0.001f ? 1.0f : 0.0f));
 
             const float f = dynFade.next();
@@ -296,7 +297,7 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
                     v = 0.6f * (2.0f * synPhase - 1.0f - polyBlep (synPhase, dt)) + 0.45f * sq;
                     break;
                 }
-                default: v = std::sin (twoPi * synPhase) + 0.3f * std::sin (2.0f * twoPi * synPhase); break;
+                default: v = fastSin2Pi (synPhase) + 0.3f * fastSin2Pi (2.0f * synPhase); break;
             }
 
             const float e = synAmpEnv.process (x);
@@ -327,13 +328,13 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
                 case 2:
                     wahLfo += p.wahRate / (float) sr;
                     if (wahLfo >= 1.0f) wahLfo -= 1.0f;
-                    m = 0.5f - 0.5f * std::cos (twoPi * wahLfo);
+                    m = 0.5f - 0.5f * fastCos2Pi (wahLfo);
                     break;
                 default: m = p.wahSens; break;   // Pedal: the SENS knob is the pedal position
             }
             wahSmooth += (m - wahSmooth) * sm;
             if ((i & 1) == 0)
-                wahFilter.set (p.wahFreq * std::pow (2.0f, p.wahRange * wahSmooth), p.wahQ, sr);
+                wahFilter.set (p.wahFreq * fastExp2 (p.wahRange * wahSmooth), p.wahQ, sr);
             wahFilter.process (x);
             const float w = wahFilter.bpOut * wahFilter.k * 1.9f + wahFilter.lpOut * 0.3f;
             const float y = x + p.wahMix * (w - x);
@@ -357,6 +358,8 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
         const int un = (int) up.getNumSamples();
         const float g = dbToGain (p.drvDrive * 42.0f);
         const float c = p.drvChar;
+        const float tb = std::tanh (0.1f + c * 0.5f);
+        const float crushSteps = std::pow (2.0f, 12.0f - p.drvDrive * 10.0f);
 
         // growl: the "hum while you blow" roughness, a wandering 25-55 Hz amplitude flutter
         growlRate += 0.08f * ((25.0f + 30.0f * c + 8.0f * noise.next()) - growlRate);
@@ -371,12 +374,12 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
                 case 0:
                 {
                     const float b = 0.1f + c * 0.5f;
-                    s = std::tanh (g * x + b) - std::tanh (b);
+                    s = fastTanh (g * x + b) - tb;
                     break;
                 }
                 case 1:
                 {
-                    s = juce::jlimit (-0.8f, 0.8f, std::tanh (g * 2.5f * x) * 1.3f);
+                    s = juce::jlimit (-0.8f, 0.8f, fastTanh (g * 2.5f * x) * 1.3f);
                     s += c * 0.85f * (1.6f * std::abs (s) - 0.6f - s);   // blend in octave-up fuzz
                     break;
                 }
@@ -385,8 +388,8 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
                     growlPhase += growlInc;
                     if (growlPhase >= 1.0f) growlPhase -= 1.0f;
                     const float depth = 0.35f + 0.55f * c;
-                    const float m = 1.0f - depth * (0.5f + 0.5f * std::sin (twoPi * growlPhase));
-                    s = std::tanh (g * 1.5f * x * m * (1.0f + 0.2f * noise.next()));
+                    const float m = 1.0f - depth * (0.5f + 0.5f * fastSin2Pi (growlPhase));
+                    s = fastTanh (g * 1.5f * x * m * (1.0f + 0.2f * noise.next()));
                     break;
                 }
                 case 3:
@@ -397,17 +400,17 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
                 }
                 case 4:     // bit crusher: fewer bits with DRIVE, lower sample rate with CHARACTER
                 {
-                    const float steps = std::pow (2.0f, 12.0f - p.drvDrive * 10.0f);
+                    const float steps = crushSteps;
                     if (++crushCount >= 1 + (int) (c * c * 40.0f)) { crushCount = 0; crushHold = std::round (juce::jlimit (-1.0f, 1.0f, x * 2.5f) * steps) / steps; }
                     s = crushHold;
                     break;
                 }
                 case 5:     // wavefolder: the louder you play, the more it folds back on itself
-                    s = std::sin (g * 0.6f * x * (1.0f + c * 2.5f));
+                    s = fastSin (g * 0.6f * x * (1.0f + c * 2.5f));
                     break;
                 default:    // rectifier: full-wave rectified fuzz, an octave-up snarl
                 {
-                    const float t = std::tanh (g * 1.5f * x);
+                    const float t = fastTanh (g * 1.5f * x);
                     s = t + (0.4f + 0.6f * c) * (1.8f * std::abs (t) - 0.9f - t);
                     break;
                 }
@@ -514,11 +517,12 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
 
     // ---- freeze: granular infinite sustain -----------------------------------------------
     frzFade.set (p.frz.on);
-    freeze.process (mono, L, R, n, voiced, trackedMidi, p.frz, frzFade);
+    if (frzFade.active() || freeze.frozen.load (std::memory_order_relaxed))
+        freeze.process (mono, L, R, n, voiced, trackedMidi, p.frz, frzFade);
 
     // ---- granular cloud ------------------------------------------------------------------
     cldFade.set (p.cloud.on);
-    cloud.process (L, R, n, p.cloud, cldFade);
+    if (cldFade.active()) cloud.process (L, R, n, p.cloud, cldFade);
 
     // ---- doubler -----------------------------------------------------------------------------
     dblFade.set (p.dbl.on);
@@ -546,7 +550,7 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
                 {
                     case 0:
                     {
-                        const float lfo = std::sin (twoPi * (modPhase + 0.25f * (float) c));
+                        const float lfo = fastSin2Pi (modPhase + 0.25f * (float) c);
                         const float d = (14.0f + (0.5f + p.modDepth * 6.0f) * lfo) * ms;
                         fx = modDl[c].read (d);
                         modDl[c].push (in + fx * p.modFb * 0.3f);
@@ -554,7 +558,7 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
                     }
                     case 1:
                     {
-                        const float lfo = 0.5f + 0.5f * std::sin (twoPi * (modPhase + 0.25f * (float) c));
+                        const float lfo = 0.5f + 0.5f * fastSin2Pi (modPhase + 0.25f * (float) c);
                         const float d = (0.25f + p.modDepth * 3.5f * lfo) * ms;
                         const float wet = modDl[c].read (d);
                         modDl[c].push (in + wet * p.modFb * 0.92f);
@@ -563,10 +567,14 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
                     }
                     case 2:
                     {
-                        const float lfo = 0.5f + 0.5f * std::sin (twoPi * (modPhase + 0.25f * (float) c));
-                        const float fc = 180.0f * std::pow (2.0f, p.modDepth * 5.5f * lfo);
-                        const float t = std::tan (pi * fc / (float) sr);
-                        const float a = (t - 1.0f) / (t + 1.0f);
+                        if ((i & 3) == 0)
+                        {
+                            const float lfo = 0.5f + 0.5f * fastSin2Pi (modPhase + 0.25f * (float) c);
+                            const float fc = 180.0f * fastExp2 (p.modDepth * 5.5f * lfo);
+                            const float t = std::tan (pi * fc / (float) sr);
+                            phaserA[c] = (t - 1.0f) / (t + 1.0f);
+                        }
+                        const float a = phaserA[c];
                         float y = in + modFbState[c] * p.modFb * 0.85f;
                         for (int s = 0; s < 6; ++s)
                         {
@@ -583,11 +591,11 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
                         const float ph = twoPi * (modPhase + 0.5f * (float) c);
                         rotXover[c].process (in);
                         const float lo = rotXover[c].lpOut, hi = in - lo;
-                        const float d = (1.0f + p.modDepth * 0.9f * (1.0f + std::sin (ph))) * ms;
+                        const float d = (1.0f + p.modDepth * 0.9f * (1.0f + fastSin (ph))) * ms;
                         const float wetHi = modDl[c].read (d);
                         modDl[c].push (hi);
-                        const float amHi = 1.0f - 0.45f * p.modDepth * (0.5f + 0.5f * std::cos (ph));
-                        const float amLo = 1.0f - 0.3f * p.modDepth * (0.5f + 0.5f * std::sin (twoPi * rotPhaseLo + pi * (float) c));
+                        const float amHi = 1.0f - 0.45f * p.modDepth * (0.5f + 0.5f * fastSin (ph + 0.5f * pi));
+                        const float amLo = 1.0f - 0.3f * p.modDepth * (0.5f + 0.5f * fastSin2Pi (rotPhaseLo + 0.5f * (float) c));
                         fx = wetHi * amHi + lo * amLo;
                         break;
                     }
@@ -607,7 +615,7 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
 
     // ---- beat repeat ---------------------------------------------------------------------
     brpFade.set (p.brp.on);
-    beatRepeat.process (L, R, n, beatPos, bps, p.brp, brpFade);
+    if (brpFade.active()) beatRepeat.process (L, R, n, beatPos, bps, p.brp, brpFade);
 
     // ---- delay: tempo-synced tape echo with ping-pong and ducking -------------------------
     dlyFade.set (p.dlyOn);
@@ -629,12 +637,12 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
             if (wobPhase >= 1.0f) wobPhase -= 1.0f;
             if (++wobCounter >= 2048) { wobCounter = 0; wobTarget = noise.next(); }
             wobRand += (wobTarget - wobRand) * wobSm;
-            const float mod = p.dlyWobble * (float) sr * (0.0025f * std::sin (twoPi * wobPhase) + 0.0015f * wobRand);
+            const float mod = p.dlyWobble * (float) sr * (0.0025f * fastSin2Pi (wobPhase) + 0.0015f * wobRand);
             const float d = std::max (1.0f, dlySmooth + mod);
 
             const float rL = dlyDl[0].read (d), rR = dlyDl[1].read (d);
-            const float fL = std::tanh (dlyLp[0].lp (dlyHp[0].hp (rL)) * fbG);
-            const float fR = std::tanh (dlyLp[1].lp (dlyHp[1].hp (rR)) * fbG);
+            const float fL = fastTanh (dlyLp[0].lp (dlyHp[0].hp (rL)) * fbG);
+            const float fR = fastTanh (dlyLp[1].lp (dlyHp[1].hp (rR)) * fbG);
             const float inM = 0.5f * (L[i] + R[i]);
             if (p.dlyPP) { dlyDl[0].push (inM + fR); dlyDl[1].push (fL); }
             else         { dlyDl[0].push (L[i] + fL); dlyDl[1].push (R[i] + fR); }
@@ -671,7 +679,7 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
 
         for (int i = 0; i < n; ++i)
         {
-            revPre.push (std::tanh (0.5f * (L[i] + R[i]) + shimmerFb));
+            revPre.push (fastTanh (0.5f * (L[i] + R[i]) + shimmerFb));
             float x = revPre.read (pre);
             for (int k = 0; k < 4; ++k)
             {
@@ -687,8 +695,8 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
             for (int k = 0; k < 8; ++k)
             {
                 float d = revLen[k];
-                if (k == 0) d += modDepth * std::sin (twoPi * revModPhase);
-                if (k == 5) d += modDepth * std::cos (twoPi * revModPhase * 1.3f);
+                if (k == 0) d += modDepth * fastSin2Pi (revModPhase);
+                if (k == 5) d += modDepth * fastCos2Pi (revModPhase * 1.3f);
                 o[k] = revDamp[k].lp (revLine[k].read (d));
                 sum += o[k];
             }

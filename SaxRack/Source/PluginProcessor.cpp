@@ -14,6 +14,14 @@ ReedstormProcessor::ReedstormProcessor()
     for (int t = 0; t < 4; ++t)
         for (int k = 0; k < 9; ++k)
             loopIds[(size_t) t][(size_t) k] = "loop" + std::to_string (t + 1) + "_" + suffix[k];
+
+    // warm the address cache on this (message) thread so the audio thread never inserts
+    warmingUp = true;
+    byAddress.reserve (512);
+    (void) snapshot();
+    for (auto& t : loopIds) for (auto& id : t) (void) get (id.c_str());
+    (void) get ("loop_stopall"); (void) get ("loop_clearall");
+    warmingUp = false;
 }
 
 bool ReedstormProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -31,9 +39,15 @@ void ReedstormProcessor::prepareToPlay (double sampleRate, int)
 
 float ReedstormProcessor::get (const char* id) const
 {
+    // Hot path: every id used on the audio thread is a string literal (or a stable member string),
+    // so after warm-up the lookup is a hash of the pointer, not of the text. Never allocates there.
+    if (auto it = byAddress.find (id); it != byAddress.end())
+        return it->second->load (std::memory_order_relaxed);
     auto it = raw.find (id);
     jassert (it != raw.end());
-    return it != raw.end() ? it->second->load (std::memory_order_relaxed) : 0.0f;
+    if (it == raw.end()) return 0.0f;
+    if (warmingUp) byAddress[id] = it->second;
+    return it->second->load (std::memory_order_relaxed);
 }
 
 rs::RackParams ReedstormProcessor::snapshot() const

@@ -44,6 +44,22 @@ jobs:
         if: runner.os == 'macOS'
         run: cmake --build build --config Release --target Reedstorm_AU --parallel 2
 
+      - name: Validate AU with Apple's auval (what Logic runs)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          cp -R build/Reedstorm_artefacts/Release/AU/Reedstorm.component ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          auval -v aufx Rs01 Rdst
+
+      - name: CPU benchmark + stress test (Apple Silicon)
+        if: runner.os == 'macOS'
+        run: |
+          cmake --build build --config Release --target ReedstormBench --parallel 2
+          echo "Machine: $(sysctl -n machdep.cpu.brand_string) ($(uname -m))"
+          ./build/ReedstormBench_artefacts/Release/ReedstormBench
+
       - name: Build test tool (Linux)
         if: runner.os == 'Linux'
         run: cmake --build build --config Release --target ReedstormRenderTest --parallel 2

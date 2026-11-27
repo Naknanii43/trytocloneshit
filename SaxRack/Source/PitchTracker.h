@@ -68,12 +68,17 @@ private:
         float running = 0.0f;
         for (int tau = 1; tau <= tauMax; ++tau)
         {
-            float d = 0.0f;
-            for (int j = 0; j < W; ++j)
+            // four independent accumulators: lets the compiler use SIMD (NEON on Apple Silicon)
+            float a0 = 0, a1 = 0, a2 = 0, a3 = 0;
+            const float* g = f + tau;
+            int j = 0;
+            for (; j + 3 < W; j += 4)
             {
-                const float t = f[j] - f[j + tau];
-                d += t * t;
+                const float t0 = f[j] - g[j], t1 = f[j + 1] - g[j + 1], t2 = f[j + 2] - g[j + 2], t3 = f[j + 3] - g[j + 3];
+                a0 += t0 * t0; a1 += t1 * t1; a2 += t2 * t2; a3 += t3 * t3;
             }
+            for (; j < W; ++j) { const float t = f[j] - g[j]; a0 += t * t; }
+            const float d = (a0 + a1) + (a2 + a3);
             running += d;
             raw[(size_t) tau] = d;
             diff[(size_t) tau] = running > 0.0f ? d * (float) tau / running : 1.0f;

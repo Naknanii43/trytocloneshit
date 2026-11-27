@@ -27,7 +27,7 @@ public:
 
     void process (float* mono, int n, bool voiced, float midi, const FormantParams& p, Fade& fade)
     {
-        const float f = std::pow (2.0f, p.shift / 12.0f);
+        const float f = fastExp2 (p.shift / 12.0f);
         if (voiced) period = juce::jlimit (32.0f, (float) lat * 0.9f, (float) sr / midiToHz (midi));
         const float vc = msToCoeff (20.0f, sr);
         const int mask = size - 1;
@@ -45,7 +45,7 @@ public:
                     const long long i0 = (long long) std::floor (src);
                     const float fr = (float) (src - (double) i0);
                     const float a = in[(size_t) (i0 & mask)], b = in[(size_t) ((i0 + 1) & mask)];
-                    const float w = 0.5f - 0.5f * std::cos (twoPi * (float) k / (float) len);
+                    const float w = 0.5f - 0.5f * fastCos2Pi ((float) k / (float) len);
                     out[(size_t) ((t + k) & mask)] += (a + fr * (b - a)) * w * f;
                 }
                 nextEmit = t + (long long) std::max (8.0f, period);
@@ -90,7 +90,7 @@ public:
             float v = p.vowel;
             switch (p.mode)
             {
-                case 1: lfo += p.rate / (float) sr; if (lfo >= 1.0f) lfo -= 1.0f; v = 0.5f - 0.5f * std::cos (twoPi * lfo); break;
+                case 1: lfo += p.rate / (float) sr; if (lfo >= 1.0f) lfo -= 1.0f; v = 0.5f - 0.5f * fastCos2Pi (lfo); break;
                 case 2: v = clamp01 (env.process (x) * (1.0f + p.sens * p.sens * 20.0f)); break;
                 case 3:
                     if (--timer <= 0) { timer = (int) (sr / std::max (0.1f, p.rate)); target = 0.5f + 0.5f * rng.next(); }
@@ -158,11 +158,11 @@ public:
                 // pitch wander in cents -> delay modulation depth
                 const float depthSamples = (p.detune * 25.0f / 1731.0f) * (float) sr / (twoPi * rate);
                 const float base = (8.0f + p.timing * (12.0f + 14.0f * (float) v)) * ms;
-                const float d = base + depthSamples * (0.7f * std::sin (twoPi * ph[v]) + 0.3f * drift[v]) + depthSamples + 2.0f;
+                const float d = base + depthSamples * (0.7f * fastSin2Pi (ph[v]) + 0.3f * drift[v]) + depthSamples + 2.0f;
                 const float s = dl[0].read (d);
                 const float pan = pans[v] * p.width;
-                wl += s * std::cos ((pan + 1.0f) * pi * 0.25f);
-                wr += s * std::sin ((pan + 1.0f) * pi * 0.25f);
+                wl += s * fastCos2Pi ((pan + 1.0f) * 0.125f);
+                wr += s * fastSin2Pi ((pan + 1.0f) * 0.125f);
             }
             const float g = fade.next() * p.mix * (voices == 1 ? 1.1f : 0.85f);
             L[i] += wl * g;
@@ -210,8 +210,8 @@ public:
                 switch (p.shape)
                 {
                     case 1:  return 1.0f - 4.0f * std::abs (x - 0.5f);                  // triangle
-                    case 2:  return std::tanh (8.0f * std::sin (twoPi * x));            // soft square
-                    default: return std::sin (twoPi * x);
+                    case 2:  return fastTanh (8.0f * fastSin2Pi (x));            // soft square
+                    default: return fastSin2Pi (x);
                 }
             };
             const float m = wave (phase);
@@ -220,8 +220,8 @@ public:
             if (p.mode == 1)        // auto-pan
             {
                 const float pan = m * p.depth;
-                gl = std::cos ((pan + 1.0f) * pi * 0.25f) * 1.4142f;
-                gr = std::sin ((pan + 1.0f) * pi * 0.25f) * 1.4142f;
+                gl = fastCos2Pi ((pan + 1.0f) * 0.125f) * 1.4142f;
+                gr = fastSin2Pi ((pan + 1.0f) * 0.125f) * 1.4142f;
                 L[i] *= 1.0f + f * (gl - 1.0f);
                 R[i] *= 1.0f + f * (gr - 1.0f);
             }
@@ -306,11 +306,16 @@ public:
                 const long long i0 = (long long) std::floor (rd);
                 const float fr = (float) (rd - (double) i0);
                 const float edge = std::min (1.0f, (float) std::min (pos, (double) len - pos) / 48.0f);
-                const float gain = std::pow (p.decay, (float) repeat) * edge;
+                if (repeat != cachedRepeat)
+                {
+                    cachedRepeat = repeat;
+                    cachedGain = std::pow (p.decay, (float) repeat);
+                    cachedSpeed = juce::jlimit (0.25, 4.0, std::pow (2.0, (double) (p.pitch * (float) repeat) / 12.0));
+                }
+                const float gain = cachedGain * edge;
                 rl = (buf[0][(size_t) (i0 & mask)] + fr * (buf[0][(size_t) ((i0 + 1) & mask)] - buf[0][(size_t) (i0 & mask)])) * gain;
                 rr = (buf[1][(size_t) (i0 & mask)] + fr * (buf[1][(size_t) ((i0 + 1) & mask)] - buf[1][(size_t) (i0 & mask)])) * gain;
-                const double speed = juce::jlimit (0.25, 4.0, std::pow (2.0, (double) (p.pitch * (float) repeat) / 12.0));
-                pos += speed;
+                pos += cachedSpeed;
                 if (pos >= (double) len) { pos -= (double) len; ++repeat; }
                 if (remaining > 0 && --remaining == 0) active = false;
             }
@@ -331,13 +336,16 @@ private:
         start = (double) (w - sliceLen);
         pos = 0;
         repeat = 0;
+        cachedRepeat = -1;
         remaining = lengthSamples;
         active = true;
     }
 
     double sr = 48000.0;
     std::vector<float> buf[2];
-    int size = 1, len = 1, repeat = 0;
+    int size = 1, len = 1, repeat = 0, cachedRepeat = -1;
+    float cachedGain = 1.0f;
+    double cachedSpeed = 1.0;
     long long w = 0, remaining = -1, lastBeat = -1;
     double start = 0, pos = 0;
     bool active = false, wasHeld = false;
@@ -367,7 +375,7 @@ public:
         const float a = -(0.42f + 0.33f * p.tension);
         const float fb = 0.5f + 0.42f * p.decay;
         const float baseMs = 30.0f + 25.0f * (1.0f - p.tension);
-        for (int c = 0; c < 2; ++c) lp[c].setCutoff (1200.0f * std::pow (2.0f, p.tone * 3.0f), sr);
+        for (int c = 0; c < 2; ++c) lp[c].setCutoff (1200.0f * fastExp2 (p.tone * 3.0f), sr);
         for (int i = 0; i < n; ++i)
         {
             const float f = fade.next();
@@ -386,7 +394,7 @@ public:
                     z.x1 = v; z.y1 = y;
                     v = y;
                 }
-                dl[c].push (std::tanh (v));
+                dl[c].push (fastTanh (v));
                 wet[c] = back;
             }
             L[i] += f * p.mix * wet[0] * 0.9f;
@@ -440,7 +448,7 @@ public:
             {
                 if (! g.active) continue;
                 const float t = (float) g.age / (float) g.len;
-                const float win = 0.5f - 0.5f * std::cos (twoPi * t);
+                const float win = 0.5f - 0.5f * fastCos2Pi (t);
                 const double rd = g.start + (double) g.age * g.speed * (g.reverse ? -1.0 : 1.0);
                 const long long i0 = (long long) std::floor (rd);
                 const float fr = (float) (rd - (double) i0);
@@ -479,8 +487,8 @@ private:
         const double back = need + (0.5 + 0.5 * (double) rng.next()) * (double) p.spray * 1.8 * sr;
         g->start = (double) w - back + (g->reverse ? need : 0.0);
         const float pan = rng.next() * p.width;
-        g->gl = std::cos ((pan + 1.0f) * pi * 0.25f);
-        g->gr = std::sin ((pan + 1.0f) * pi * 0.25f);
+        g->gl = fastCos2Pi ((pan + 1.0f) * 0.125f);
+        g->gr = fastSin2Pi ((pan + 1.0f) * 0.125f);
         g->active = true;
     }
 

@@ -65,6 +65,8 @@ public:
         const float thresh = dbToGain (-28.0f - p.sens * 32.0f);      // -28 .. -60 dBFS
         const float ratio = 2.6f - p.sens * 1.3f;
         const int refrac = (int) (0.09 * sr);
+        const float dirtSteps = std::pow (2.0f, 14.0f - p.dirt * 11.0f);
+        const float dirtNorm = 1.6f / std::sqrt (1.0f + p.dirt * 18.0f);
 
         for (int i = 0; i < n; ++i)
         {
@@ -95,9 +97,9 @@ public:
             if (p.dirt > 0.001f)
             {
                 const float drive = 1.0f + p.dirt * 18.0f;
-                l = std::tanh (l * drive) / std::sqrt (drive) * 1.6f;
-                r = std::tanh (r * drive) / std::sqrt (drive) * 1.6f;
-                const float steps = std::pow (2.0f, 14.0f - p.dirt * 11.0f);
+                l = fastTanh (l * drive) * dirtNorm;
+                r = fastTanh (r * drive) * dirtNorm;
+                const float steps = dirtSteps;
                 l = std::round (l * steps) / steps;
                 r = std::round (r * steps) / steps;
                 const int hold = 1 + (int) (p.dirt * p.dirt * 10.0f);
@@ -229,7 +231,7 @@ private:
                 case Clank:   f0 = pick (70, 220) * (followHz > 0 ? 0.25f : 1.0f); dur = 1.1f; initModes(); break;
                 case Grinder: f0 = pick (40, 120) * (followHz > 0 ? 0.25f : 1.0f); dur = 0.5f + 0.6f * e; comb.reset(); break;
                 case Stutter: dur = 0.0f; grabSlice (g, 0.06f + 0.12f * e); reps = 4 + (int) (d * 9.0f); dur = sliceLen / sr * (float) reps; break;
-                case Ghost:   grabSlice (g, 0.42f); dur = sliceLen / sr; f0 = std::pow (2.0f, (float) ((int) (d * 4.0f) - 2) * 0.5f); break;
+                case Ghost:   grabSlice (g, 0.42f); dur = sliceLen / sr; f0 = fastExp2 ((float) ((int) (d * 4.0f) - 2) * 0.5f); break;
                 case Screech: f0 = (followHz > 0 ? followHz * (float) (3 + (int) (d * 4.0f)) : 1500.0f + 2000.0f * d); dur = 0.8f; break;
                 default:      dur = 0.25f + 0.35f * e; break;
             }
@@ -247,17 +249,17 @@ private:
             {
                 case Boing:   // cartoon spring: decaying pitch wobble
                 {
-                    const float f = f0 * (1.0f + 0.45f * std::exp (-tt * 4.0f) * std::sin (twoPi * 11.0f * tt));
-                    s = osc (0, f) * std::exp (-tt * 5.0f) * 0.8f;
-                    s += 0.25f * osc (1, f * 2.0f) * std::exp (-tt * 9.0f);
+                    const float f = f0 * (1.0f + 0.45f * fastExp2 (-1.4426950f * (tt * 4.0f)) * fastSin2Pi (11.0f * tt));
+                    s = osc (0, f) * fastExp2 (-1.4426950f * (tt * 5.0f)) * 0.8f;
+                    s += 0.25f * osc (1, f * 2.0f) * fastExp2 (-1.4426950f * (tt * 9.0f));
                     break;
                 }
                 case Pew:     // laser zaps
                 {
                     const float seg = dur / (float) reps;
                     const float lt = std::fmod (tt, seg);
-                    const float f = f0 * 0.25f + f0 * 3.0f * std::exp (-lt * 22.0f);
-                    s = sq (0, f) * std::exp (-lt * 14.0f) * 0.5f;
+                    const float f = f0 * 0.25f + f0 * 3.0f * fastExp2 (-1.4426950f * (lt * 22.0f));
+                    s = sq (0, f) * fastExp2 (-1.4426950f * (lt * 14.0f)) * 0.5f;
                     break;
                 }
                 case Quack:   // buzzy formant with a pitch drop, repeated
@@ -266,14 +268,14 @@ private:
                     const float f = f0 * (1.0f - 0.35f * lt / (dur / (float) reps));
                     const float buzz = saw (0, f);
                     if ((t & 15) == 0) { form[0].set (900.0f - 500.0f * lt * 6.0f, 6.0f, sr); form[1].set (1300.0f, 7.0f, sr); }
-                    s = (form[0].bpNorm (buzz) + 0.6f * form[1].bpNorm (buzz)) * std::min (1.0f, lt * 150.0f) * std::exp (-lt * 9.0f) * 1.3f;
+                    s = (form[0].bpNorm (buzz) + 0.6f * form[1].bpNorm (buzz)) * std::min (1.0f, lt * 150.0f) * fastExp2 (-1.4426950f * (lt * 9.0f)) * 1.3f;
                     break;
                 }
                 case Bubbles: // rising sine blips
                 {
                     if (--stepTimer <= 0) { stepTimer = (int) (sr * (0.025f + 0.05f * g.dice())); stepHz = f0 * (0.6f + g.dice()); blip = 0; }
                     const float bt = (float) blip++ / sr;
-                    s = osc (0, stepHz * (1.0f + bt * 60.0f)) * std::exp (-bt * 45.0f) * 0.7f;
+                    s = osc (0, stepHz * (1.0f + bt * 60.0f)) * fastExp2 (-1.4426950f * (bt * 45.0f)) * 0.7f;
                     break;
                 }
                 case Robot:   // bit-crushed random beeps, sometimes sliding
@@ -292,8 +294,8 @@ private:
                 }
                 case Whistle: // slide whistle up and back, with vibrato
                 {
-                    const float shape = std::sin (pi * std::min (1.0f, tt / dur));
-                    const float f = f0 * (1.0f + 1.6f * shape) * (1.0f + 0.02f * std::sin (twoPi * 6.0f * tt));
+                    const float shape = fastSin2Pi (0.5f * (std::min (1.0f, tt / dur)));
+                    const float f = f0 * (1.0f + 1.6f * shape) * (1.0f + 0.02f * fastSin2Pi (6.0f * tt));
                     s = osc (0, f) * shape * 0.45f;
                     break;
                 }
@@ -303,7 +305,7 @@ private:
                     const float buzz = saw (0, f0) * 0.5f + 0.5f;
                     if ((t & 15) == 0) { form[0].set (650.0f, 5.0f, sr); form[1].set (1700.0f, 6.0f, sr); }
                     const float y = x * buzz * 3.0f;
-                    s = (form[0].bpNorm (y) + form[1].bpNorm (y)) * std::sin (pi * tt / dur) * 1.5f;
+                    s = (form[0].bpNorm (y) + form[1].bpNorm (y)) * fastSin2Pi (0.5f * (tt / dur)) * 1.5f;
                     break;
                 }
                 case Clank:   // free-bar metal modes, hard clipped
@@ -332,9 +334,9 @@ private:
                     const float c = comb.read (period);
                     comb.push (g.rng.next() * 0.3f + c * 0.9f);
                     float y = c * 0.7f + saw (0, f0 * 0.5f) * 0.5f;
-                    y *= 0.6f + 0.4f * std::sin (twoPi * 27.0f * tt);
-                    y = std::sin (y * 3.5f);            // wavefolder
-                    s = y * std::min (1.0f, tt * 40.0f) * std::exp (-tt * 1.8f) * 0.5f;
+                    y *= 0.6f + 0.4f * fastSin2Pi (27.0f * tt);
+                    y = fastSin (y * 3.5f);            // wavefolder
+                    s = y * std::min (1.0f, tt * 40.0f) * fastExp2 (-1.4426950f * (tt * 1.8f)) * 0.5f;
                     break;
                 }
                 case Stutter: // a slice of what you just played, retriggered and crushed
@@ -342,38 +344,38 @@ private:
                     const float pos = std::fmod (tt * sr, sliceLen);
                     const int rep = (int) (tt * sr / sliceLen);
                     const float x = sliceAt (pos * (1.0f + 0.06f * (float) rep));
-                    const float steps = std::pow (2.0f, 8.0f - (float) rep * 0.5f);
+                    const float steps = fastExp2 (8.0f - (float) rep * 0.5f);
                     s = std::round (x * steps) / steps * 1.6f * gateEdge (pos, sliceLen);
                     break;
                 }
                 case Ghost:   // reversed and re-pitched, ring-modulated
                 {
                     const float pos = sliceLen - 1.0f - std::fmod (tt * sr * f0, sliceLen);
-                    s = sliceAt (pos) * osc (0, 90.0f) * 2.0f * std::sin (pi * std::min (1.0f, tt / dur));
+                    s = sliceAt (pos) * osc (0, 90.0f) * 2.0f * fastSin2Pi (0.5f * (std::min (1.0f, tt / dur)));
                     break;
                 }
                 case Screech: // runaway feedback tone
                 {
                     const float grow = std::min (1.0f, tt * 3.0f);
-                    const float f = f0 * (1.0f + 0.01f * std::sin (twoPi * 7.0f * tt));
-                    s = std::tanh (osc (0, f) * (1.0f + grow * 6.0f)) * grow * std::min (1.0f, (dur - tt) * 8.0f) * 0.32f;
+                    const float f = f0 * (1.0f + 0.01f * fastSin2Pi (7.0f * tt));
+                    s = fastTanh (osc (0, f) * (1.0f + grow * 6.0f)) * grow * std::min (1.0f, (dur - tt) * 8.0f) * 0.32f;
                     break;
                 }
                 default:      // static bursts
                 {
                     const float n = g.rng.next();
                     const float crackle = g.dice() < 0.02f ? (g.rng.next() > 0 ? 0.9f : -0.9f) : 0.0f;
-                    s = (std::round (n * 4.0f) / 4.0f * 0.25f + crackle) * (0.5f + 0.5f * std::sin (twoPi * 13.0f * tt)) * 0.6f;
+                    s = (std::round (n * 4.0f) / 4.0f * 0.25f + crackle) * (0.5f + 0.5f * fastSin2Pi (13.0f * tt)) * 0.6f;
                     break;
                 }
             }
             if (++t >= durS) active = false;
-            const float gl = std::cos ((pan + 1.0f) * pi * 0.25f), gr = std::sin ((pan + 1.0f) * pi * 0.25f);
+            const float gl = fastCos2Pi ((pan + 1.0f) * 0.125f), gr = fastSin2Pi ((pan + 1.0f) * 0.125f);
             L += s * gl;
             R += s * gr;
         }
 
-        float osc (int i, float f) { ph[i] += f / sr; ph[i] -= std::floor (ph[i]); return std::sin (twoPi * ph[i]); }
+        float osc (int i, float f) { ph[i] += f / sr; ph[i] -= std::floor (ph[i]); return fastSin2Pi (ph[i]); }
         float saw (int i, float f) { ph[i] += f / sr; ph[i] -= std::floor (ph[i]); return 2.0f * ph[i] - 1.0f; }
         float sq (int i, float f) { ph[i] += f / sr; ph[i] -= std::floor (ph[i]); return ph[i] < 0.5f ? 1.0f : -1.0f; }
         static float gateEdge (float pos, float len) { return std::min (1.0f, std::min (pos, len - pos) / 64.0f); }

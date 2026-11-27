@@ -32,12 +32,12 @@ struct SynthVoice
         sound = s;
         hz = midiToHz (midi);
         vel = velocity;
-        gainL = std::cos ((pan + 1.0f) * pi * 0.25f);
-        gainR = std::sin ((pan + 1.0f) * pi * 0.25f);
+        gainL = fastCos2Pi ((pan + 1.0f) * 0.125f);
+        gainR = fastSin2Pi ((pan + 1.0f) * 0.125f);
         attackLeft = (int) (attackSeconds() * sr);
         attackStep = attackLeft > 0 ? 1.0f / (float) attackLeft : 1.0f;
         holdLeft = noteLenSamples;
-        decayCoef = std::exp (-1.0f / (releaseSeconds() * (float) sr));
+        decayCoef = fastExp2 (-1.4426950f * (1.0f / (releaseSeconds() * (float) sr)));
         env = attackLeft > 0 ? 0.0f : 1.0f;
         active = true;
         age = 0;
@@ -110,7 +110,7 @@ private:
     {
         ph[i] += f / sr;
         if (ph[i] >= 1.0) ph[i] -= 1.0;
-        return std::sin (twoPi * (float) ph[i]);
+        return fastSin2Pi ((float) ph[i]);
     }
 
     /** Core oscillator. `bright` 0..1 opens the timbre (breath / envelope). */
@@ -127,7 +127,7 @@ private:
                 const float idx = 0.6f + 2.4f * bright;
                 ph[0] += f / sr;
                 if (ph[0] >= 1.0) ph[0] -= 1.0;
-                return 0.8f * std::sin (twoPi * (float) ph[0] + idx * std::sin (twoPi * (float) fmPh));
+                return 0.8f * fastSin2Pi ((float) ph[0] + idx * 0.15915494f * fastSin2Pi ((float) fmPh));
             }
             case GenSound::Pad:
             {

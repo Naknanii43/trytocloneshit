@@ -69,6 +69,7 @@ public:
     {
         if (maxLen == 0) return;
         if (const int c = pending.exchange (0)) handle ((Command) c, sync, bpm, snap, 0);
+        if (state == Empty && outGain < 1.0e-6f) { uiState.store (state); uiLength.store (0); uiPos.store (0); return; }   // idle track: nothing to do
 
         const double rate = (p.half ? 0.5 : 1.0) * (p.reverse ? -1.0 : 1.0);
         const bool audible = ! p.mute && (state == Playing || state == Overdubbing);

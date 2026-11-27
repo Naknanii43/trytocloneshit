@@ -117,7 +117,7 @@ private:
     Fade harFade; PitchShifter harShift1, harShift2; float harRatio1 = 1, harRatio2 = 1;
     float harHeld1 = 0, harHeld2 = 0;
     // modulation
-    Fade modFade; DelayLine modDl[2]; float modPhase = 0, rotPhaseLo = 0; float apState[2][6] {}; float modFbState[2] {};
+    Fade modFade; DelayLine modDl[2]; float modPhase = 0, rotPhaseLo = 0; float apState[2][6] {}; float modFbState[2] {}; float phaserA[2] { -0.9f, -0.9f };
     Svf rotXover[2];
     // delay
     Fade dlyFade; DelayLine dlyDl[2]; float dlySmooth = 0; OnePole dlyLp[2], dlyHp[2]; EnvFollower dlyDuckEnv;

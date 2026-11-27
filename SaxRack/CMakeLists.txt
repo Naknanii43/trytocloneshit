@@ -30,6 +30,7 @@ juce_add_plugin(Reedstorm
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
+    BUNDLE_ID com.reedstormaudio.reedstorm
     PLUGIN_MANUFACTURER_CODE Rdst
     PLUGIN_CODE Rs01
     VST3_CATEGORIES Fx
@@ -44,6 +45,11 @@ target_sources(Reedstorm PRIVATE ${REEDSTORM_SOURCES})
 
 set(REEDSTORM_DEFS JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
 target_compile_definitions(Reedstorm PUBLIC ${REEDSTORM_DEFS})
+
+# Let the compiler inline/vectorise sqrt, floor, etc. (no global fast-math: NaN checks must keep working)
+if(NOT MSVC)
+    target_compile_options(Reedstorm PUBLIC -fno-math-errno)
+endif()
 
 target_link_libraries(Reedstorm
     PRIVATE
@@ -63,4 +69,11 @@ if(REEDSTORM_BUILD_TESTS)
     target_link_libraries(ReedstormRenderTest PRIVATE
         juce::juce_audio_utils juce::juce_dsp juce::juce_audio_formats
         juce::juce_recommended_config_flags)
+
+    juce_add_console_app(ReedstormBench PRODUCT_NAME "ReedstormBench")
+    target_sources(ReedstormBench PRIVATE tools/Bench.cpp ${REEDSTORM_SOURCES})
+    target_compile_definitions(ReedstormBench PRIVATE ${REEDSTORM_DEFS} JUCE_STANDALONE_APPLICATION=1)
+    target_link_libraries(ReedstormBench PRIVATE
+        juce::juce_audio_utils juce::juce_dsp
+        juce::juce_recommended_config_flags juce::juce_recommended_lto_flags)
 endif()

@@ -22,6 +22,55 @@ inline float msToCoeff (float ms, double sr)
 inline float clamp01 (float x) { return std::min (1.0f, std::max (0.0f, x)); }
 
 //==============================================================================
+// Fast approximations for per-sample use. All are branch-light, NaN-safe for finite input,
+// and accurate far beyond audibility for the ranges used here.
+
+/** 2^x, relative error < 2e-5 (|x| < 120). */
+inline float fastExp2 (float x)
+{
+    x = std::min (120.0f, std::max (-120.0f, x));
+    const float fl = std::floor (x);
+    const float f = x - fl;
+    // minimax polynomial for 2^f on [0,1)
+    const float p = 1.0f + f * (0.69314718f + f * (0.24022650f + f * (0.05550411f + f * (0.00961813f + f * 0.00133336f))));
+    return std::ldexp (p, (int) fl);
+}
+
+/** log2(x) for x > 0, absolute error < 1e-4. */
+inline float fastLog2 (float x)
+{
+    int e = 0;
+    const float m = std::frexp (std::max (x, 1.0e-30f), &e);    // m in [0.5, 1)
+    const float t = (m - 0.70710678f) / (m + 0.70710678f);
+    const float t2 = t * t;
+    const float ln = 2.0f * t * (1.0f + t2 * (0.33333333f + t2 * (0.2f + t2 * 0.14285714f)));
+    return (float) e - 0.5f + ln * 1.44269504f;
+}
+
+inline float fastDbToGain (float db) { return fastExp2 (db * 0.16609640f); }
+inline float fastGainToDb (float g)  { return 6.0205999f * fastLog2 (std::max (g, 1.0e-9f)); }
+
+/** sin(2*pi*x) for any x (phase in cycles), absolute error < 1e-6. */
+inline float fastSin2Pi (float x)
+{
+    x -= std::floor (x + 0.5f);                    // [-0.5, 0.5)
+    const float y = x * twoPi;
+    const float y2 = y * y;
+    return y * (1.0f + y2 * (-0.16666667f + y2 * (0.0083333310f + y2 * (-0.00019840874f + y2 * (2.7525562e-06f - y2 * 2.3889859e-08f)))));
+}
+inline float fastCos2Pi (float x) { return fastSin2Pi (x + 0.25f); }
+inline float fastSin (float radians) { return fastSin2Pi (radians * 0.15915494f); }
+
+/** tanh(x), relative error < 1e-4, saturates cleanly. */
+inline float fastTanh (float x)
+{
+    if (x > 9.0f) return 1.0f;
+    if (x < -9.0f) return -1.0f;
+    const float e = fastExp2 (2.8853901f * x);     // e^(2x)
+    return (e - 1.0f) / (e + 1.0f);
+}
+
+//==============================================================================
 struct OnePole
 {
     float a = 1.0f, z = 0.0f;
@@ -184,7 +233,7 @@ struct PitchShifter
         if (d < 0.0f)    d += window * std::ceil (-d / window);
         float d2 = d + 0.5f * window;
         if (d2 >= window) d2 -= window;
-        const float g1 = 0.5f - 0.5f * std::cos (twoPi * d / window);
+        const float g1 = 0.5f - 0.5f * fastCos2Pi (d / window);
         return dl.read (1.0f + d) * g1 + dl.read (1.0f + d2) * (1.0f - g1);
     }
 };

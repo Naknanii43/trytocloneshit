@@ -23,7 +23,7 @@ public:
         if (voiced) shifter.setWindowForPeriod ((float) sr / midiToHz (midi), 28.0f, sr);
 
         const float glideC = p.glide < 1.0f ? 1.0f : msToCoeff (p.glide, sr);
-        const float scoopC = std::exp (-1.0f / (std::max (p.glide, 5.0f) * 0.001f * (float) sr));
+        const float scoopC = fastExp2 (-1.4426950f * (1.0f / (std::max (p.glide, 5.0f) * 0.001f * (float) sr)));
         for (int i = 0; i < n; ++i)
         {
             float target = 0.0f;
@@ -33,7 +33,7 @@ public:
                 case 1:
                     lfo += p.rate / (float) sr;
                     if (lfo >= 1.0f) lfo -= 1.0f;
-                    target = p.amount * (0.5f - 0.5f * std::cos (twoPi * lfo));
+                    target = p.amount * (0.5f - 0.5f * fastCos2Pi (lfo));
                     break;
                 case 2: target = p.amount * scoop; scoop *= scoopC; break;
                 default:
@@ -47,7 +47,7 @@ public:
             }
             shift += (target - shift) * (p.mode == 2 ? 1.0f : glideC);
             const float x = mono[i];
-            const float s = shifter.process (x, std::pow (2.0f, shift / 12.0f));
+            const float s = shifter.process (x, fastExp2 (shift / 12.0f));
             const float y = x + p.mix * (s - x);
             const float f = fade.next();
             mono[i] = x + f * (y - x);
@@ -83,15 +83,15 @@ public:
             lfo += p.rate / (float) sr;
             if (lfo >= 1.0f) lfo -= 1.0f;
             carrierSm += (base - carrierSm) * c;
-            const float hz = carrierSm * std::pow (2.0f, p.sweep * 2.0f * std::sin (twoPi * lfo));
+            const float hz = carrierSm * fastExp2 (p.sweep * 2.0f * fastSin2Pi (lfo));
             ph += hz / (float) sr;
             ph -= std::floor (ph);
             float car;
             switch (p.wave)
             {
-                case 1:  car = std::tanh (6.0f * std::sin (twoPi * ph)); break;            // soft square
+                case 1:  car = fastTanh (6.0f * fastSin2Pi (ph)); break;            // soft square
                 case 2:  car = 1.0f - 4.0f * std::abs (ph - 0.5f); break;                  // triangle
-                default: car = std::sin (twoPi * ph); break;
+                default: car = fastSin2Pi (ph); break;
             }
             const float x = mono[i];
             const float y = x + p.mix * (x * car * 1.3f - x);
@@ -160,7 +160,7 @@ public:
         static const float pitchRatio[] = { 0.5f, 1.0f, 1.4983f, 2.0f };
         const float rate = pitchRatio[juce::jlimit (0, 3, p.pitch)];
         const float attackStep = 1.0f / (std::max (p.attack, 10.0f) * 0.001f * (float) sr);
-        const float releaseCoef = std::exp (-1.0f / (1.2f * (float) sr));
+        const float releaseCoef = fastExp2 (-1.4426950f * (1.0f / (1.2f * (float) sr)));
         const float decayCoef = p.decay <= 0.001f ? 1.0f : std::exp (-1.0f / ((0.5f + 12.0f * (1.0f - p.decay)) * (float) sr));
         int activeCount = 0;
         float fv[64];
@@ -184,7 +184,7 @@ public:
                 for (auto& g : l.grains)
                 {
                     const float t = (float) g.age / (float) grainLen;
-                    const float w = 0.5f - 0.5f * std::cos (twoPi * t);
+                    const float w = 0.5f - 0.5f * fastCos2Pi (t);
                     const float pos = g.start + (float) g.age * rate * g.detune;
                     const int i0 = std::min (capLen - 2, (int) pos);
                     const float fr = pos - (float) i0;
@@ -255,8 +255,8 @@ private:
         g.start = (0.5f + 0.5f * rng.next()) * std::max (0.0f, (float) capLen - span - 4.0f);
         g.detune = 1.0f + 0.004f * rng.next();
         const float pan = rng.next() * width;
-        g.gl = std::cos ((pan + 1.0f) * pi * 0.25f);
-        g.gr = std::sin ((pan + 1.0f) * pi * 0.25f);
+        g.gl = fastCos2Pi ((pan + 1.0f) * 0.125f);
+        g.gr = fastSin2Pi ((pan + 1.0f) * 0.125f);
     }
 
     double sr = 48000.0;

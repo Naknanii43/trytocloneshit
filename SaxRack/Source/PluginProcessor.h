@@ -54,6 +54,8 @@ private:
 
     rs::Rack rack;
     std::unordered_map<std::string, std::atomic<float>*> raw;
+    mutable std::unordered_map<const void*, std::atomic<float>*> byAddress;
+    mutable bool warmingUp = false;
     int currentPreset = 0;
     bool footDown[4][4] {};
     bool stopAllDown = false, clearAllDown = false;
