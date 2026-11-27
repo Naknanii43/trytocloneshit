@@ -33,6 +33,13 @@ namespace col
     const juce::Colour ring   { 0xffdfe6ee };
     const juce::Colour frz    { 0xff7fe3ff };
     const juce::Colour gate   { 0xffff6d6d };
+    const juce::Colour fmt    { 0xffc58bff };
+    const juce::Colour tlk    { 0xff6cffd2 };
+    const juce::Colour dbl    { 0xfff5c16c };
+    const juce::Colour trm    { 0xffa3ff6b };
+    const juce::Colour brp    { 0xffff7b3a };
+    const juce::Colour spr    { 0xffd99a6b };
+    const juce::Colour cld    { 0xffb0a8ff };
     const juce::Colour zone[4] { juce::Colour (0xff6a7dff), juce::Colour (0xff3ee8ff), juce::Colour (0xffffc94a), juce::Colour (0xffff5fa2) };
 }
 

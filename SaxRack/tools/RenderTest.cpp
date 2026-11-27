@@ -534,7 +534,7 @@ int main (int argc, char** argv)
             if (blk == 200) ls.post (1, rs::LoopTrack::Tap);      // track 2: locks to 2x
             if (blk == 300) ls.post (1, rs::LoopTrack::Tap);
             if (blk == 420) ls.post (2, rs::LoopTrack::Tap);      // track 3: recording when we look
-            if (blk == 495) red->setPage (2);
+            if (blk == 495) red->setPage (3);
             proc.processBlock (buf, midi);
             if (blk % 3 == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (33);
         }
@@ -550,7 +550,7 @@ int main (int argc, char** argv)
         };
         std::printf ("\n");
         snap ("ui_generate.png");
-        red->setPage (3); snap ("ui_loops.png");
+        red->setPage (4); snap ("ui_loops.png");
         red->setPage (0); snap ("ui.png");
 
         // MANGLE page with all four effects running
@@ -568,6 +568,20 @@ int main (int argc, char** argv)
             if ((pos / 512) % 3 == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (33);
         }
         snap ("ui_mangle.png");
+
+        // TEXTURE page
+        for (auto* id : { "whm_on", "rng_on", "frz_on", "gat_on" }) proc.apvts.getParameter (id)->setValueNotifyingHost (0.0f);
+        for (auto* id : { "fmt_on", "tlk_on", "dbl_on", "trm_on", "brp_on", "spr_on", "cld_on" }) proc.apvts.getParameter (id)->setValueNotifyingHost (1.0f);
+        red->setPage (2);
+        for (int pos = 0; pos < (int) (sr * 2.0); pos += 512)
+        {
+            juce::AudioBuffer<float> buf (2, 512);
+            buf.copyFrom (0, 0, in, 0, pos, 512);
+            buf.copyFrom (1, 0, in, 0, pos, 512);
+            proc.processBlock (buf, midi);
+            if ((pos / 512) % 3 == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (33);
+        }
+        snap ("ui_texture.png");
 
         // also check the editor survives a resize and every preset switch
         ed->setSize (ReedstormContent::designW / 2, ReedstormContent::designH / 2);

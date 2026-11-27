@@ -21,7 +21,7 @@ void Rack::prepare (double sampleRate)
     sr = sampleRate;
     tracker.prepare (sr);
 
-    for (auto* f : { &dynFade, &octFade, &synFade, &wahFade, &drvFade, &eqFade, &harFade, &modFade, &dlyFade, &revFade, &genFade, &grmFade, &whmFade, &rngFade, &frzFade, &gatFade })
+    for (auto* f : { &dynFade, &octFade, &synFade, &wahFade, &drvFade, &eqFade, &harFade, &modFade, &dlyFade, &revFade, &genFade, &grmFade, &whmFade, &rngFade, &frzFade, &gatFade, &fmtFade, &tlkFade, &dblFade, &trmFade, &brpFade, &sprFade, &cldFade })
         f->prepare (sr);
 
     gateEnv.setup (0.3f, 40.0f, sr);
@@ -65,6 +65,13 @@ void Rack::prepare (double sampleRate)
     ringMod.prepare (sr);
     freeze.prepare (sr);
     slicer.prepare (sr);
+    formant.prepare (sr);
+    talkBox.prepare (sr);
+    doubler.prepare (sr);
+    tremolo.prepare (sr);
+    beatRepeat.prepare (sr);
+    springRev.prepare (sr);
+    cloud.prepare (sr);
     looper.prepare (sr);
     inGainSm.reset (sr, 0.03);
     outGainSm.reset (sr, 0.03);
@@ -382,10 +389,26 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
                     s = std::tanh (g * 1.5f * x * m * (1.0f + 0.2f * noise.next()));
                     break;
                 }
-                default:
+                case 3:
                 {
                     const float y = g * 0.7f * x;
                     s = 0.6366f * std::atan (y + c * 0.3f * y * std::abs (y) / (1.0f + std::abs (y)));
+                    break;
+                }
+                case 4:     // bit crusher: fewer bits with DRIVE, lower sample rate with CHARACTER
+                {
+                    const float steps = std::pow (2.0f, 12.0f - p.drvDrive * 10.0f);
+                    if (++crushCount >= 1 + (int) (c * c * 40.0f)) { crushCount = 0; crushHold = std::round (juce::jlimit (-1.0f, 1.0f, x * 2.5f) * steps) / steps; }
+                    s = crushHold;
+                    break;
+                }
+                case 5:     // wavefolder: the louder you play, the more it folds back on itself
+                    s = std::sin (g * 0.6f * x * (1.0f + c * 2.5f));
+                    break;
+                default:    // rectifier: full-wave rectified fuzz, an octave-up snarl
+                {
+                    const float t = std::tanh (g * 1.5f * x);
+                    s = t + (0.4f + 0.6f * c) * (1.8f * std::abs (t) - 0.9f - t);
                     break;
                 }
             }
@@ -394,8 +417,8 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
         os->processSamplesDown (block);
 
         drvTone.set (700.0f * std::pow (2.0f, p.drvTone * 4.5f), 0.6f, sr);
-        static constexpr float typeTrim[] = { 1.0f, 0.55f, 0.6f, 0.85f };
-        const float comp = dbToGain (p.drvLevel) * typeTrim[juce::jlimit (0, 3, p.drvType)] / (1.0f + p.drvDrive * 3.0f);
+        static constexpr float typeTrim[] = { 1.0f, 0.55f, 0.6f, 0.85f, 0.9f, 0.75f, 0.55f };
+        const float comp = dbToGain (p.drvLevel) * typeTrim[juce::jlimit (0, 6, p.drvType)] / (1.0f + p.drvDrive * 3.0f);
         for (int i = 0; i < n; ++i)
         {
             const float dry = dryCopy[i];
@@ -432,6 +455,12 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
     // ---- whammy: bends everything above (sax, morph voice) ---------------------------------
     whmFade.set (p.whm.on);
     if (whmFade.active()) whammy.process (mono, n, voiced, trackedMidi, p.whm, whmFade);
+
+    // ---- formant shifter + talk box -------------------------------------------------------
+    fmtFade.set (p.fmt.on);
+    if (fmtFade.active()) formant.process (mono, n, voiced, trackedMidi, p.fmt, fmtFade);
+    tlkFade.set (p.talk.on);
+    if (tlkFade.active()) talkBox.process (mono, n, p.talk, tlkFade);
 
     // ---- harmonizer: mono -> stereo ----------------------------------------------------
     std::copy (mono, mono + n, L);
@@ -486,6 +515,14 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
     // ---- freeze: granular infinite sustain -----------------------------------------------
     frzFade.set (p.frz.on);
     freeze.process (mono, L, R, n, voiced, trackedMidi, p.frz, frzFade);
+
+    // ---- granular cloud ------------------------------------------------------------------
+    cldFade.set (p.cloud.on);
+    cloud.process (L, R, n, p.cloud, cldFade);
+
+    // ---- doubler -----------------------------------------------------------------------------
+    dblFade.set (p.dbl.on);
+    if (dblFade.active()) doubler.process (L, R, n, p.dbl, dblFade);
 
     // ---- modulation: chorus / flanger / phaser / rotary --------------------------------
     modFade.set (p.modOn);
@@ -562,8 +599,15 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
     }
 
     // ---- slicer: tempo gate ----------------------------------------------------------------
+    const double bps = bpm / (60.0 * sr);
+    trmFade.set (p.trem.on);
+    if (trmFade.active()) tremolo.process (L, R, n, beatPos, bps, p.trem, trmFade);
     gatFade.set (p.gate.on);
-    if (gatFade.active()) slicer.process (L, R, n, beatPos, bpm / (60.0 * sr), p.gate, gatFade);
+    if (gatFade.active()) slicer.process (L, R, n, beatPos, bps, p.gate, gatFade);
+
+    // ---- beat repeat ---------------------------------------------------------------------
+    brpFade.set (p.brp.on);
+    beatRepeat.process (L, R, n, beatPos, bps, p.brp, brpFade);
 
     // ---- delay: tempo-synced tape echo with ping-pong and ducking -------------------------
     dlyFade.set (p.dlyOn);
@@ -605,6 +649,10 @@ void Rack::processChunk (int n, const RackParams& p, double bpm)
     {
         dlySmooth = 0.0f;
     }
+
+    // ---- spring reverb --------------------------------------------------------------------
+    sprFade.set (p.spring.on);
+    if (sprFade.active()) springRev.process (L, R, n, p.spring, sprFade);
 
     // ---- reverb: 8-line feedback delay network + shimmer ---------------------------------
     revFade.set (p.revOn);

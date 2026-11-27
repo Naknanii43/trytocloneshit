@@ -5,7 +5,7 @@
 namespace rs::params
 {
 inline const juce::StringArray wahModes      { "Env Up", "Env Down", "LFO", "Pedal" };
-inline const juce::StringArray driveTypes    { "Tube", "Fuzz", "Growl", "Tape" };
+inline const juce::StringArray driveTypes    { "Tube", "Fuzz", "Growl", "Tape", "Bitcrush", "Wavefold", "Rectify" };
 inline const juce::StringArray synthWaves    { "Saw", "Square", "Saw+Sub", "Soft" };
 inline const juce::StringArray synthOctaves  { "-2 oct", "-1 oct", "0", "+1 oct" };
 inline const juce::StringArray harmModes     { "Diatonic", "Chromatic" };
@@ -24,6 +24,15 @@ inline const juce::StringArray freezeModes   { "Manual", "Auto" };
 inline const juce::StringArray freezePitches { "-1 oct", "Unison", "+5th", "+1 oct" };
 inline const juce::StringArray slicerPatterns { "Trance", "Offbeat", "Stutter", "Half-time", "Chop", "Morse", "Random" };
 inline const juce::StringArray slicerRates   { "1/8", "1/16", "1/32", "1/8 trip", "1/16 trip" };
+inline const juce::StringArray talkModes     { "Manual", "LFO", "Envelope", "Random" };
+inline const juce::StringArray dblPlayers    { "2 players", "3 players", "4 players" };
+inline const juce::StringArray trmModes      { "Tremolo", "Auto-Pan", "Harmonic" };
+inline const juce::StringArray trmShapes     { "Sine", "Triangle", "Square" };
+inline const juce::StringArray trmSyncs      { "Free", "1/2", "1/4", "1/8", "1/8 trip", "1/16" };
+inline const juce::StringArray brpModes      { "Manual", "Auto" };
+inline const juce::StringArray brpGrids      { "1/4", "1/8", "1/16", "1/32", "1/8 trip", "1/16 trip" };
+inline const juce::StringArray brpLengths    { "1/2 beat", "1 beat", "2 beats", "4 beats" };
+inline const juce::StringArray cldPitchModes { "Free", "Octaves", "Fifths" };
 inline const juce::StringArray instruments   { "Concert C", "Soprano Bb", "Alto Eb", "Tenor Bb", "Bari Eb" };
 
 /** Semitones from sounding (concert) pitch to the written note, per instrument. */
@@ -230,6 +239,74 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     fl ("gat_smooth", "Slicer Smooth", skewed (1.0f, 60.0f, 8.0f), 5.0f, "ms");
     pct ("gat_swing", "Slicer Swing", 0.0f);
     bl ("gat_pp", "Slicer Ping-Pong", false);
+
+    // Texture: formant shifter
+    bl ("fmt_on", "Formant On", false);
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "fmt_shift", v }, "Formant Shift",
+        NormalisableRange<float> (-12.0f, 12.0f), 0.0f,
+        AudioParameterFloatAttributes().withStringFromValueFunction ([] (float x, int)
+        {
+            if (std::abs (x) < 0.05f) return String ("natural");
+            return (x > 0 ? "smaller +" : "bigger ") + String (x, 1) + " st";
+        })));
+    pct ("fmt_mix", "Formant Mix", 1.0f);
+    // Texture: talk box
+    bl ("tlk_on", "Talk Box On", false);
+    ch ("tlk_mode", "Talk Box Mode", talkModes, 2);
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "tlk_vowel", v }, "Talk Box Vowel",
+        NormalisableRange<float> (0.0f, 1.0f), 0.0f,
+        AudioParameterFloatAttributes().withStringFromValueFunction ([] (float x, int)
+        {
+            static const char* vw[] = { "A", "E", "I", "O", "U" };
+            return String (vw[jlimit (0, 4, roundToInt (x * 4.0f))]);
+        })));
+    fl ("tlk_rate", "Talk Box Rate", skewed (0.05f, 10.0f, 1.0f), 1.0f, "Hz");
+    pct ("tlk_sens", "Talk Box Sensitivity", 0.5f);
+    pct ("tlk_reso", "Talk Box Resonance", 0.5f);
+    pct ("tlk_mix", "Talk Box Mix", 1.0f);
+    // Texture: doubler
+    bl ("dbl_on", "Doubler On", false);
+    ch ("dbl_players", "Doubler Players", dblPlayers, 1);
+    pct ("dbl_detune", "Doubler Detune", 0.4f);
+    pct ("dbl_timing", "Doubler Timing", 0.4f);
+    pct ("dbl_width", "Doubler Width", 0.8f);
+    pct ("dbl_mix", "Doubler Mix", 0.6f);
+    // Texture: tremolo / auto-pan
+    bl ("trm_on", "Tremolo On", false);
+    ch ("trm_mode", "Tremolo Mode", trmModes, 0);
+    ch ("trm_shape", "Tremolo Shape", trmShapes, 0);
+    ch ("trm_sync", "Tremolo Sync", trmSyncs, 0);
+    fl ("trm_rate", "Tremolo Rate", skewed (0.1f, 20.0f, 4.0f), 5.0f, "Hz");
+    pct ("trm_depth", "Tremolo Depth", 0.6f);
+    // Texture: beat repeat
+    bl ("brp_on", "Beat Repeat On", false);
+    bl ("brp_hold", "Beat Repeat", false);
+    ch ("brp_mode", "Beat Repeat Mode", brpModes, 1);
+    ch ("brp_grid", "Beat Repeat Grid", brpGrids, 2);
+    ch ("brp_length", "Beat Repeat Length", brpLengths, 1);
+    pct ("brp_chance", "Beat Repeat Chance", 0.3f);
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "brp_pitch", v }, "Beat Repeat Pitch",
+        NormalisableRange<float> (-3.0f, 3.0f), 0.0f,
+        AudioParameterFloatAttributes().withStringFromValueFunction ([] (float x, int) { return (x > 0 ? "+" : "") + String (x, 1) + " st/rep"; })));
+    fl ("brp_decay", "Beat Repeat Decay", { 0.5f, 1.0f }, 0.9f, "%");
+    pct ("brp_mix", "Beat Repeat Mix", 1.0f);
+    // Texture: spring reverb
+    bl ("spr_on", "Spring On", false);
+    pct ("spr_decay", "Spring Decay", 0.5f);
+    pct ("spr_tone", "Spring Tone", 0.5f);
+    pct ("spr_tension", "Spring Tension", 0.5f);
+    pct ("spr_drip", "Spring Drip", 0.4f);
+    pct ("spr_mix", "Spring Mix", 0.35f);
+    // Texture: granular cloud
+    bl ("cld_on", "Cloud On", false);
+    ch ("cld_pmode", "Cloud Pitch Mode", cldPitchModes, 0);
+    pct ("cld_density", "Cloud Density", 0.5f);
+    fl ("cld_size", "Cloud Grain Size", skewed (20.0f, 400.0f, 100.0f), 120.0f, "ms");
+    pct ("cld_spray", "Cloud Spray", 0.5f);
+    pct ("cld_pitch", "Cloud Pitch Spread", 0.3f);
+    pct ("cld_reverse", "Cloud Reverse", 0.3f);
+    pct ("cld_width", "Cloud Width", 0.8f);
+    pct ("cld_mix", "Cloud Mix", 0.5f);
 
     // Gremlins
     bl ("grm_on", "Gremlins On", false);

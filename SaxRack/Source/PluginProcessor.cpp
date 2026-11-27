@@ -92,6 +92,21 @@ rs::RackParams ReedstormProcessor::snapshot() const
     p.frz.width = get ("frz_width"); p.frz.level = get ("frz_level");
     p.gate.on = b ("gat_on"); p.gate.pattern = i ("gat_pattern"); p.gate.rate = i ("gat_rate"); p.gate.depth = get ("gat_depth");
     p.gate.smooth = get ("gat_smooth"); p.gate.swing = get ("gat_swing"); p.gate.pingPong = b ("gat_pp");
+    p.fmt.on = b ("fmt_on"); p.fmt.shift = get ("fmt_shift"); p.fmt.mix = get ("fmt_mix");
+    p.talk.on = b ("tlk_on"); p.talk.mode = i ("tlk_mode"); p.talk.vowel = get ("tlk_vowel"); p.talk.rate = get ("tlk_rate");
+    p.talk.sens = get ("tlk_sens"); p.talk.reso = get ("tlk_reso"); p.talk.mix = get ("tlk_mix");
+    p.dbl.on = b ("dbl_on"); p.dbl.players = i ("dbl_players") + 1; p.dbl.detune = get ("dbl_detune"); p.dbl.timing = get ("dbl_timing");
+    p.dbl.width = get ("dbl_width"); p.dbl.mix = get ("dbl_mix");
+    p.trem.on = b ("trm_on"); p.trem.mode = i ("trm_mode"); p.trem.shape = i ("trm_shape"); p.trem.sync = i ("trm_sync");
+    p.trem.rate = get ("trm_rate"); p.trem.depth = get ("trm_depth");
+    p.brp.on = b ("brp_on"); p.brp.hold = b ("brp_hold"); p.brp.mode = i ("brp_mode"); p.brp.grid = i ("brp_grid");
+    p.brp.length = i ("brp_length"); p.brp.chance = get ("brp_chance"); p.brp.pitch = get ("brp_pitch");
+    p.brp.decay = get ("brp_decay"); p.brp.mix = get ("brp_mix");
+    p.spring.on = b ("spr_on"); p.spring.decay = get ("spr_decay"); p.spring.tone = get ("spr_tone");
+    p.spring.tension = get ("spr_tension"); p.spring.drip = get ("spr_drip"); p.spring.mix = get ("spr_mix");
+    p.cloud.on = b ("cld_on"); p.cloud.pitchMode = i ("cld_pmode"); p.cloud.density = get ("cld_density"); p.cloud.size = get ("cld_size");
+    p.cloud.spray = get ("cld_spray"); p.cloud.pitch = get ("cld_pitch"); p.cloud.reverse = get ("cld_reverse");
+    p.cloud.width = get ("cld_width"); p.cloud.mix = get ("cld_mix");
     p.outWidth = get ("out_width"); p.outGain = get ("out_gain");
     p.instrument = i ("tuner_inst"); p.tunerRef = get ("tuner_ref");
     return p;
@@ -166,7 +181,7 @@ void ReedstormProcessor::loadPreset (int index)
         if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p))
         {
             const auto id = rp->getParameterID();
-            if (id.startsWith ("tuner_") || id.startsWith ("loop") || id == "frz_hold" || id == "in_gain" || id == "out_gain") continue;
+            if (id.startsWith ("tuner_") || id.startsWith ("loop") || id == "frz_hold" || id == "brp_hold" || id == "in_gain" || id == "out_gain") continue;
             rp->setValueNotifyingHost (rp->getDefaultValue());
         }
 

@@ -69,6 +69,15 @@ inline const std::vector<Preset>& factoryPresets()
             { "syn_on", 1 }, { "syn_wave", 2 }, { "syn_oct", 1 }, { "syn_cut", 420 }, { "syn_res", 0.25f }, { "syn_env", 0.6f }, { "syn_lvl", 0.7f },
             { "eq_lowcut", 25 }, { "eq_body", 4 }, { "eq_air", -5 }, { "out_width", 0.6f } } },
 
+        { "8-Bit Crush", "Heavy", "Your sax through a game console: crushed to a few bits and a low sample rate. Gritty, aliased, retro.",
+          { { "comp_amt", 0.5f }, { "drv_on", 1 }, { "drv_type", 4 }, { "drv_drive", 0.65f }, { "drv_char", 0.55f }, { "drv_tone", 0.8f }, { "drv_level", 2 },
+            { "eq_lowcut", 120 } } },
+
+        { "Wavefolder Scream", "Heavy", "Play harder and the wave folds over itself again and again: a metallic, synth-like scream.",
+          { { "comp_amt", 0.55f }, { "drv_on", 1 }, { "drv_type", 5 }, { "drv_drive", 0.55f }, { "drv_char", 0.7f }, { "drv_tone", 0.6f },
+            { "eq_lowcut", 90 }, { "eq_mid", 3 }, { "eq_midf", 2200 },
+            { "rev_on", 1 }, { "rev_size", 0.3f }, { "rev_decay", 0.8f }, { "rev_mix", 0.12f } } },
+
         { "Synth Horn Lead", "Synth", "A big, soft saw lead that follows your pitch and breath, with slow glide, wide chorus and a long hall.",
           { { "comp_amt", 0.45f }, { "syn_on", 1 }, { "syn_wave", 0 }, { "syn_oct", 2 }, { "syn_cut", 2800 }, { "syn_res", 0.15f },
             { "syn_env", 0.4f }, { "syn_glide", 70 }, { "syn_lvl", 0.85f },
@@ -147,6 +156,34 @@ inline const std::vector<Preset>& factoryPresets()
             { "gen_bloom", 0.8f }, { "gen_pattern", 1 }, { "gen_rate", 2 }, { "gen_length", 12 }, { "gen_density", 0.45f }, { "gen_range", 2 }, { "gen_hold", 300 },
             { "dly_on", 1 }, { "dly_sync", 1 }, { "dly_fb", 0.68f }, { "dly_mix", 0.42f }, { "dly_tone", 1500 }, { "dly_wobble", 0.55f },
             { "rev_on", 1 }, { "rev_size", 0.6f }, { "rev_decay", 2.5f }, { "rev_damp", 0.85f }, { "rev_mix", 0.22f }, { "out_width", 0.8f } } },
+
+        { "Sax Section Double", "Texture", "One player becomes four: three slightly late, slightly out-of-tune doubles spread across the stereo field.",
+          { { "comp_amt", 0.4f }, { "dbl_on", 1 }, { "dbl_players", 2 }, { "dbl_detune", 0.55f }, { "dbl_timing", 0.5f }, { "dbl_width", 1.0f }, { "dbl_mix", 0.75f },
+            { "rev_on", 1 }, { "rev_size", 0.45f }, { "rev_decay", 1.3f }, { "rev_mix", 0.18f } } },
+
+        { "Giant Bass Sax", "Texture", "Same notes, much bigger horn: the formants drop so your alto sounds like a huge bass saxophone.",
+          { { "comp_amt", 0.4f }, { "fmt_on", 1 }, { "fmt_shift", -7 }, { "eq_body", 3 }, { "eq_air", -3 } } },
+
+        { "Sopranino Squeak", "Texture", "Same notes, tiny horn: formants up for a nasal, toy-like sopranino.",
+          { { "comp_amt", 0.4f }, { "fmt_on", 1 }, { "fmt_shift", 8 }, { "eq_lowcut", 160 }, { "eq_air", 2 } } },
+
+        { "Talking Sax", "Texture", "Your playing level opens a talk-box mouth: soft notes say \"oo\", loud notes say \"ah\". Funky and vocal.",
+          { { "comp_amt", 0.45f }, { "tlk_on", 1 }, { "tlk_mode", 2 }, { "tlk_sens", 0.6f }, { "tlk_reso", 0.65f }, { "tlk_mix", 0.95f },
+            { "dly_on", 1 }, { "dly_sync", 5 }, { "dly_fb", 0.2f }, { "dly_mix", 0.15f } } },
+
+        { "Surf Spring Tremolo", "Texture", "Throbbing tremolo into a drippy, boingy spring tank. Surf-rock sax.",
+          { { "trm_on", 1 }, { "trm_mode", 0 }, { "trm_shape", 0 }, { "trm_rate", 6.0f }, { "trm_depth", 0.65f },
+            { "drv_on", 1 }, { "drv_type", 0 }, { "drv_drive", 0.25f }, { "drv_mix", 0.6f },
+            { "spr_on", 1 }, { "spr_decay", 0.65f }, { "spr_tone", 0.45f }, { "spr_tension", 0.35f }, { "spr_drip", 0.8f }, { "spr_mix", 0.5f } } },
+
+        { "Granular Haze", "Texture", "A cloud of reversed, octave-jumping fragments of what you just played hangs around you. Dreamy and broken.",
+          { { "cld_on", 1 }, { "cld_pmode", 1 }, { "cld_density", 0.6f }, { "cld_size", 160 }, { "cld_spray", 0.7f }, { "cld_pitch", 0.45f },
+            { "cld_reverse", 0.5f }, { "cld_width", 1.0f }, { "cld_mix", 0.7f },
+            { "rev_on", 1 }, { "rev_size", 0.8f }, { "rev_decay", 3.0f }, { "rev_mix", 0.3f } } },
+
+        { "Beat Repeat Glitch", "Texture", "On random beats your last 16th gets stuttered and pitched down like a DJ glitch. Needs host tempo.",
+          { { "comp_amt", 0.45f }, { "brp_on", 1 }, { "brp_mode", 1 }, { "brp_grid", 2 }, { "brp_length", 1 }, { "brp_chance", 0.5f },
+            { "brp_pitch", -1.0f }, { "brp_decay", 0.88f }, { "brp_mix", 1.0f } } },
 
         { "Gremlin Party", "Gremlins", "Every creature at once: a bouncing, chorused zoo of boings, lasers, quacks, robots and the odd clank, echoing around the room.",
           { { "comp_amt", 0.35f }, { "grm_on", 1 }, { "grm_palette", 0 }, { "grm_harsh", 0.2f }, { "grm_chance", 1.0f }, { "grm_swarm", 0.8f },

@@ -12,6 +12,7 @@
 #include "Looper.h"
 #include "Gremlins.h"
 #include "Mangle.h"
+#include "Texture.h"
 #include <juce_dsp/juce_dsp.h>
 #include <atomic>
 
@@ -36,6 +37,13 @@ struct RackParams
     RingParams ring;
     FreezeParams frz;
     SlicerParams gate;
+    FormantParams fmt;
+    TalkParams talk;
+    DoublerParams dbl;
+    TremoloParams trem;
+    RepeatParams brp;
+    SpringParams spring;
+    CloudParams cloud;
     LoopParams loop;
     float outWidth = 1, outGain = 0;
     int instrument = 2; float tunerRef = 440;
@@ -68,6 +76,13 @@ public:
     RingMod ringMod;
     Freeze freeze;
     Slicer slicer;
+    FormantShifter formant;
+    TalkBox talkBox;
+    Doubler doubler;
+    Tremolo tremolo;
+    BeatRepeat beatRepeat;
+    SpringReverb springRev;
+    GranularCloud cloud;
     LoopStation looper;
 
     /** Harmony interval (scale steps or semitones) -> semitones for the current note. Public for tests. */
@@ -111,7 +126,8 @@ private:
     Fade revFade; DelayLine revPre; DelayLine revAp[4]; float revApLen[4] {}; DelayLine revLine[8];
     float revLen[8] {}; OnePole revDamp[8]; float revModPhase = 0; PitchShifter shimmer; float shimmerFb = 0; OnePole shimHp;
     // generator
-    Fade genFade, grmFade, whmFade, rngFade, frzFade, gatFade;
+    Fade genFade, grmFade, whmFade, rngFade, frzFade, gatFade, fmtFade, tlkFade, dblFade, trmFade, brpFade, sprFade, cldFade;
+    float crushHold = 0; int crushCount = 0;
     double beatPos = 0;
     float rawIn[chunk] {};
     // output
